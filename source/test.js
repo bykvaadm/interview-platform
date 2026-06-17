@@ -99,8 +99,14 @@ setTimeout(()=>{
     const cards=w.document.querySelectorAll('#interviewList .icard');
     ok(cards[1].classList.contains('collapsed'),"collapsed item gets .collapsed class");
     ok(!cards[0].classList.contains('collapsed'),"non-collapsed item stays expanded");
-    ok(w.document.querySelector('#collapseAll')&&w.document.querySelector('#expandAll'),"collapse-all / expand-all buttons present");
     ok(w.document.querySelector('.icard .mini [data-mini]')!==null,"collapsed-summary score element present");
+    const tgl=w.document.querySelector('#toggleCollapse');
+    ok(tgl!==null,"collapse/expand toggle button present");
+    tgl.click(); SC=api.SESSION();
+    ok(SC.items.every(it=>it.collapsed),"toggle → collapses all");
+    ok((tgl.textContent||'').includes('Развернуть'),"toggle label flips to 'Развернуть все'");
+    tgl.click(); SC=api.SESSION();
+    ok(SC.items.every(it=>!it.collapsed),"toggle → expands all");
 
     console.log("\n"+(fails===0?"ALL TESTS PASSED ✓":fails+" TEST(S) FAILED ✗"));
     process.exit(fails===0?0:1);

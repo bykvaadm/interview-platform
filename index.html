@@ -289,8 +289,7 @@ kbd{font-family:var(--mono);font-size:12px;background:var(--surface-2);border:1p
     <div class="spread" style="margin-bottom:10px">
       <div class="hint" id="ivCount"></div>
       <div class="row">
-        <button class="btn btn-sm" id="collapseAll" title="Свернуть контролы у всех вопросов">⊟ Свернуть все</button>
-        <button class="btn btn-sm" id="expandAll" title="Развернуть все вопросы">⊞ Развернуть все</button>
+        <button class="btn btn-sm" id="toggleCollapse" title="Свернуть/развернуть контролы у всех вопросов">▾ Свернуть все</button>
         <button class="btn btn-sm" data-goto="prep">＋ Добавить ещё вопросы</button>
       </div>
     </div>
@@ -536,6 +535,9 @@ function qualityOptions(sel){
 function renderInterview(){
   bindMeta();
   $('#ivCount').innerHTML=`Вопросов в сессии: <b>${SESSION.items.length}</b>`;
+  const tc=$('#toggleCollapse');
+  if(tc){ const allCol=SESSION.items.length&&SESSION.items.every(it=>it.collapsed);
+    tc.disabled=!SESSION.items.length; tc.textContent=allCol?'▸ Развернуть все':'▾ Свернуть все'; }
   const list=$('#interviewList');
   if(!SESSION.items.length){
     list.innerHTML='<div class="panel center-empty">Сессия пуста. Перейдите во вкладку «Подготовка» и добавьте вопросы.</div>';
@@ -883,8 +885,7 @@ $('#interviewList').addEventListener('click',e=>{
   if(mv){ const i=SESSION.items.findIndex(x=>x.uid===mv.dataset.move); const j=i+(+mv.dataset.dir);
     if(j>=0&&j<SESSION.items.length){ const t=SESSION.items[i];SESSION.items[i]=SESSION.items[j];SESSION.items[j]=t;saveSession();renderInterview(); } }
 });
-$('#collapseAll').onclick=()=>{ if(SESSION.items.length) setAllCollapsed(true); };
-$('#expandAll').onclick=()=>{ if(SESSION.items.length) setAllCollapsed(false); };
+$('#toggleCollapse').onclick=()=>{ if(!SESSION.items.length) return; const anyExpanded=SESSION.items.some(it=>!it.collapsed); setAllCollapsed(anyExpanded); };
 $('#btnClearSession').onclick=()=>{ if(!SESSION.items.length){toast('Сессия уже пуста');return;}
   if(confirm('Очистить текущую сессию? Метаданные кандидата тоже будут сброшены.')){ SESSION={meta:{candidate:'',position:'',interviewer:'',date:new Date().toISOString().slice(0,10),notes:''},items:[]}; saveSession(); updatePills(); renderInterview(); toast('Сессия очищена'); } };
 $('#btnXlsx').onclick=exportXlsx; $('#btnPdf').onclick=exportPdf;
