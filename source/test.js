@@ -85,6 +85,23 @@ setTimeout(()=>{
     const noDup=new Set(SP.items.map(i=>i.qid)).size===29;
     ok(noDup,"no duplicate questions in preset");
 
+    console.log("== comments & collapse ==");
+    api.clear();
+    DATA.questions.slice(0,2).forEach(x=>api.addToSession(x.id));
+    let SC=api.SESSION();
+    SC.items[0].comment='отвечал уверенно';
+    SC.items[1].collapsed=true;
+    api.setView('interview');
+    ok(w.document.querySelector('#m_notes')!==null,"global notes textarea present");
+    ok(w.document.querySelectorAll('#interviewList textarea[data-comment]').length===2,"per-question comment fields rendered");
+    const firstCmt=w.document.querySelector('#interviewList textarea[data-comment]');
+    ok(firstCmt && firstCmt.value==='отвечал уверенно',"comment value rendered into textarea");
+    const cards=w.document.querySelectorAll('#interviewList .icard');
+    ok(cards[1].classList.contains('collapsed'),"collapsed item gets .collapsed class");
+    ok(!cards[0].classList.contains('collapsed'),"non-collapsed item stays expanded");
+    ok(w.document.querySelector('#collapseAll')&&w.document.querySelector('#expandAll'),"collapse-all / expand-all buttons present");
+    ok(w.document.querySelector('.icard .mini [data-mini]')!==null,"collapsed-summary score element present");
+
     console.log("\n"+(fails===0?"ALL TESTS PASSED ✓":fails+" TEST(S) FAILED ✗"));
     process.exit(fails===0?0:1);
   }catch(e){ console.error("ERROR during test:",e); process.exit(2); }

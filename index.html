@@ -147,6 +147,16 @@ label.fld{display:block;font-size:12.5px;font-weight:600;color:var(--muted);marg
 .icard .calc{margin-left:auto;text-align:right}
 .icard .calc .n{font-size:23px;font-weight:740;font-variant-numeric:tabular-nums;line-height:1}
 .icard .calc .l{font-size:11.5px;color:var(--muted);font-weight:600}
+.icard .mini{display:none;align-items:center;gap:9px;margin-right:4px;font-size:12.5px;color:var(--muted)}
+.icard .mini b{font-size:17px;font-variant-numeric:tabular-nums;color:var(--text)}
+.icard .cmt{flex:1 1 100%}
+.icard .cmt textarea{min-height:44px}
+.icard.collapsed .kpwrap{display:none}
+.icard.collapsed .bottom{display:none}
+.icard.collapsed .meta .hint{display:none}
+.icard.collapsed .mini{display:flex}
+.icard.collapsed .top{border-bottom:0}
+.collapse-btn{font-size:13px;line-height:1}
 
 /* Grade scale */
 .scale-wrap{padding:6px 4px 2px}
@@ -271,13 +281,18 @@ kbd{font-family:var(--mono);font-size:12px;background:var(--surface-2);border:1p
         <div class="grow" style="min-width:180px"><label class="fld">Интервьюер</label><input class="input" id="m_interviewer" placeholder="кто проводит"></div>
         <div style="min-width:140px"><label class="fld">Дата</label><input class="input" id="m_date" type="date"></div>
       </div>
+      <div><label class="fld">Комментарий / итоговое впечатление</label><textarea id="m_notes" placeholder="Свободные заметки по кандидату…"></textarea></div>
     </div>
 
     <div class="panel pad" id="resultsPanel" style="margin-bottom:16px"></div>
 
     <div class="spread" style="margin-bottom:10px">
       <div class="hint" id="ivCount"></div>
-      <button class="btn btn-sm" data-goto="prep">＋ Добавить ещё вопросы</button>
+      <div class="row">
+        <button class="btn btn-sm" id="collapseAll" title="Свернуть контролы у всех вопросов">⊟ Свернуть все</button>
+        <button class="btn btn-sm" id="expandAll" title="Развернуть все вопросы">⊞ Развернуть все</button>
+        <button class="btn btn-sm" data-goto="prep">＋ Добавить ещё вопросы</button>
+      </div>
     </div>
     <div id="interviewList"></div>
   </section>
@@ -473,7 +488,7 @@ function renderPrep(){ renderPresets(); renderPrepFilters(); renderPrepList(); }
 function bindMeta(){
   const sel=$('#m_position');
   sel.innerHTML='<option value="">— не задан</option>'+DATA.grades.map(g=>`<option>${esc(g)}</option>`).join('');
-  const map={m_candidate:'candidate',m_position:'position',m_interviewer:'interviewer',m_date:'date'};
+  const map={m_candidate:'candidate',m_position:'position',m_interviewer:'interviewer',m_date:'date',m_notes:'notes'};
   Object.entries(map).forEach(([id,key])=>{ const el=$('#'+id); el.value=SESSION.meta[key]||''; });
 }
 function renderResults(){
@@ -533,7 +548,7 @@ function renderInterview(){
       return `<label class="kp-check"><input type="checkbox" data-chk="${it.uid}" data-ki="${ki}" ${it.checks[ki]?'checked':''}> ${esc(k)}</label>`;
     }).join('');
     const checked=it.checks.filter(Boolean).length, kpTotal=it.keyPoints.filter(k=>k&&k.trim()).length;
-    return `<div class="icard" data-uid="${it.uid}">
+    return `<div class="icard ${it.collapsed?'collapsed':''}" data-uid="${it.uid}">
       <div class="top">
         <div class="num">${String(idx+1).padStart(2,'0')}</div>
         <div class="qbody">
@@ -543,9 +558,11 @@ function renderInterview(){
             <span class="hint">ключевых точек отмечено ${checked}/${kpTotal}</span>
           </div>
           <div class="qq">${esc(it.question)}</div>
-          <div style="margin-top:8px">${kp}</div>
+          <div class="kpwrap" style="margin-top:8px">${kp}</div>
         </div>
         <div class="controls">
+          <span class="mini"><span data-miniassess="${it.uid}">${esc(it.assessment||'не оценено')}</span><span data-minicmt="${it.uid}">${it.comment&&it.comment.trim()?' 💬':''}</span><b data-mini="${it.uid}">${calc==null?'—':fmt(calc)}</b></span>
+          <button class="btn btn-sm btn-ghost collapse-btn" data-collapse="${it.uid}" title="Свернуть/развернуть контролы">${it.collapsed?'▸':'▾'}</button>
           <button class="btn btn-sm btn-ghost" data-move="${it.uid}" data-dir="-1" title="Выше" ${idx===0?'disabled':''}>↑</button>
           <button class="btn btn-sm btn-ghost" data-move="${it.uid}" data-dir="1" title="Ниже" ${idx===SESSION.items.length-1?'disabled':''}>↓</button>
           <button class="btn btn-sm btn-ghost" data-del="${it.uid}" title="Убрать">✕</button>
@@ -557,12 +574,21 @@ function renderInterview(){
         <div class="fldw"><label class="fld">Корр. баллы</label>
           <input class="input" type="number" step="0.25" data-corr="${it.uid}" value="${it.corr||0}" style="width:96px"></div>
         <div class="calc"><div class="n" data-calc="${it.uid}">${calc==null?'—':fmt(calc)}</div><div class="l">баллов за вопрос</div></div>
+        <div class="fldw cmt"><label class="fld">Комментарий</label>
+          <textarea data-comment="${it.uid}" placeholder="заметки по ответу кандидата…">${esc(it.comment||'')}</textarea></div>
       </div>
     </div>`;
   }).join('');
   renderResults();
 }
 function findItem(uid){ return SESSION.items.find(i=>i.uid===uid); }
+function updCalc(id){ const it=findItem(id); if(!it) return; const c=calcItem(it);
+  const el=document.querySelector(`[data-calc="${id}"]`); if(el)el.textContent=c==null?'—':fmt(c);
+  const m=document.querySelector(`[data-mini="${id}"]`); if(m)m.textContent=c==null?'—':fmt(c);
+  const ma=document.querySelector(`[data-miniassess="${id}"]`); if(ma)ma.textContent=it.assessment||'не оценено';
+  const mc=document.querySelector(`[data-minicmt="${id}"]`); if(mc)mc.textContent=(it.comment&&it.comment.trim())?' 💬':'';
+}
+function setAllCollapsed(v){ SESSION.items.forEach(it=>it.collapsed=v); saveSession(); renderInterview(); }
 
 /* ========================= BANK ========================= */
 const bankFilter={q:'',cat:'',diff:''};
@@ -615,7 +641,7 @@ function renderHelp(){
   const blocks=[
     ['Подготовка к собеседованию','Во вкладке <b>Подготовка</b> выберите вопросы из банка. Сначала наберите CORE-вопросы для основного хода беседы, затем поровну добавьте MEDIUM и SPECIFIC. Не готовьте более ~30 вопросов — оставьте место, чтобы добавить вопросы по ходу. Следите за таймингом: на Low-вопрос не давайте больше минуты.'],
     ['Готовые наборы (пресеты)','Вверху вкладки «Подготовка» можно одним кликом загрузить <b>готовый набор</b> вопросов. Встроен <b>«Базовый набор (как в таблице)»</b> — те вопросы, что были выбраны в исходной Google-таблице. Любой свой выбор можно сохранить как новый пресет кнопкой <b>«Сохранить текущий выбор»</b> — пресеты хранятся в браузере и переносятся вместе с экспортом конфигурации (JSON).'],
-    ['Ход собеседования','Во вкладке <b>Собеседование</b> по мере ответа отмечайте галочками «ключевые точки» — это снижает субъективность. Можно подсказывать кандидату наводящими вопросами из ключевых точек. Итоговый балл за вопрос задаётся полем <b>«Оценка рекрутёра»</b>.'],
+    ['Ход собеседования','Во вкладке <b>Собеседование</b> по мере ответа отмечайте галочками «ключевые точки» — это снижает субъективность. Можно подсказывать кандидату наводящими вопросами из ключевых точек. Итоговый балл за вопрос задаётся полем <b>«Оценка рекрутёра»</b>. У каждого вопроса есть поле <b>«Комментарий»</b> для свободных заметок, а кнопкой <b>▾</b> карточку можно свернуть (останется только вопрос и итоговый балл) — удобно во время живого диалога. Кнопки <b>«Свернуть/Развернуть все»</b> — над списком. Внизу формы кандидата есть общий <b>«Комментарий / итоговое впечатление»</b>. Всё это попадает в экспорт Excel и PDF.'],
     ['Как считается балл','За каждый оценённый вопрос: балл = значение из <b>матрицы баллов</b> (степень раскрытия × сложность) + <b>корр. баллы</b>. Корр. баллы — для исключительных случаев (кандидат знает тему сверх ожидаемого). Ориентируйтесь на матрицу: 5 баллов — максимум за полностью раскрытый сложный вопрос, не давайте +5 к Low-вопросу.'],
     ['Грейд','Пороги грейдов считаются <b>по набору оценённых вопросов</b> и матрице ожиданий: для каждого грейда суммируется ожидаемый балл по всем вопросам. Сумма баллов кандидата сравнивается с порогами — определяется ближайший грейд и интервал (нижний/верхний грейд), между которыми находится кандидат. Неоценённые вопросы в расчёт не входят.'],
     ['Сохранение и экспорт','Банк, матрицы и текущая сессия сохраняются в памяти браузера (localStorage) — можно закрыть вкладку и вернуться. Кнопки <b>Excel</b> и <b>PDF</b> выгружают результат. Во вкладке <b>Матрицы</b> есть экспорт/импорт конфигурации в JSON и сброс к исходному набору.'],
@@ -624,7 +650,7 @@ function renderHelp(){
 }
 
 /* ========================= mutations ========================= */
-function mkItem(q){ return {uid:uid(),qid:q.id,category:q.category,difficulty:q.difficulty,question:q.question,keyPoints:q.keyPoints.slice(),checks:[false,false,false],assessment:'',corr:0}; }
+function mkItem(q){ return {uid:uid(),qid:q.id,category:q.category,difficulty:q.difficulty,question:q.question,keyPoints:q.keyPoints.slice(),checks:[false,false,false],assessment:'',corr:0,comment:'',collapsed:false}; }
 function addToSession(qid){
   if(SESSION.items.some(i=>i.qid===qid)){ toast('Уже в сессии'); return; }
   const q=DATA.questions.find(x=>x.id===qid); if(!q) return;
@@ -733,16 +759,16 @@ function catsModal(){
 function exportXlsx(){
   if(typeof XLSX==='undefined'){ toast('Библиотека Excel не загрузилась (нужен интернет)'); return; }
   const r=results();
-  const head=['#','Категория','Группа','Сложность','Вопрос','КТ1','✓','КТ2','✓','КТ3','✓','Оценка рекрутёра','Корр. баллы','Балл'];
+  const head=['#','Категория','Группа','Сложность','Вопрос','КТ1','✓','КТ2','✓','КТ3','✓','Оценка рекрутёра','Корр. баллы','Балл','Комментарий'];
   const aoa=[head];
   SESSION.items.forEach((it,i)=>{ const c=calcItem(it);
     aoa.push([i+1,it.category,catGroup(it.category),it.difficulty,it.question,
       it.keyPoints[0]||'',it.checks[0]?'✓':'',it.keyPoints[1]||'',it.checks[1]?'✓':'',it.keyPoints[2]||'',it.checks[2]?'✓':'',
-      it.assessment||'',(+it.corr||0),c==null?'':c]); });
+      it.assessment||'',(+it.corr||0),c==null?'':c,it.comment||'']); });
   const ws=XLSX.utils.aoa_to_sheet(aoa);
-  ws['!cols']=[{wch:4},{wch:16},{wch:10},{wch:8},{wch:52},{wch:30},{wch:3},{wch:30},{wch:3},{wch:30},{wch:3},{wch:16},{wch:8},{wch:7}];
+  ws['!cols']=[{wch:4},{wch:16},{wch:10},{wch:8},{wch:52},{wch:30},{wch:3},{wch:30},{wch:3},{wch:30},{wch:3},{wch:16},{wch:8},{wch:7},{wch:40}];
   // summary sheet
-  const s=[['Кандидат',SESSION.meta.candidate||''],['Целевой грейд',SESSION.meta.position||''],['Интервьюер',SESSION.meta.interviewer||''],['Дата',SESSION.meta.date||''],[],
+  const s=[['Кандидат',SESSION.meta.candidate||''],['Целевой грейд',SESSION.meta.position||''],['Интервьюер',SESSION.meta.interviewer||''],['Дата',SESSION.meta.date||''],['Комментарий',SESSION.meta.notes||''],[],
     ['Оценено вопросов',r.assessed.length+' из '+r.total],['Low / Medium / High',`${r.counts.Low} / ${r.counts.Medium} / ${r.counts.High}`],
     ['Сумма баллов',fmt(r.sum)],['Оценочный грейд',r.nearest?(r.lower&&r.upper?`${r.nearest} (между ${r.lower} и ${r.upper})`:r.nearest):'—'],[],
     ['Грейд','Ожидаемые баллы','Достигнут','Δ']];
@@ -768,6 +794,7 @@ function exportPdf(){
         <div style="flex:1">
           <div style="margin-bottom:3px">${badge(it.category,'#eef0fe',C.accent)} ${badge(it.difficulty,dc[0],dc[1])}</div>
           <div style="font-weight:600;font-size:13px">${i+1}. ${esc(it.question)}</div>${kps}
+          ${it.comment&&it.comment.trim()?`<div style="font-size:11.5px;color:${C.ink};margin-top:5px;padding:5px 8px;background:${C.bg};border-radius:6px">💬 ${esc(it.comment)}</div>`:''}
         </div>
         <div style="text-align:right;min-width:96px">
           <div style="font-size:12px;color:${C.mut}">${esc(it.assessment||'не оценено')}</div>
@@ -832,26 +859,32 @@ $('#prepAddAll').onclick=()=>{ const inS=new Set(SESSION.items.map(i=>i.qid)); c
   let n=0; list.forEach(it=>{ if(!inS.has(it.id)){ addToSession(it.id); n++; } }); renderPrepList(); toast(n?`Добавлено: ${n}`:'Нечего добавлять'); };
 
 // interview meta
-['m_candidate','m_position','m_interviewer','m_date'].forEach(id=>{
-  const key={m_candidate:'candidate',m_position:'position',m_interviewer:'interviewer',m_date:'date'}[id];
+['m_candidate','m_position','m_interviewer','m_date','m_notes'].forEach(id=>{
+  const key={m_candidate:'candidate',m_position:'position',m_interviewer:'interviewer',m_date:'date',m_notes:'notes'}[id];
   $('#'+id).addEventListener('input',e=>{SESSION.meta[key]=e.target.value;saveSession();});
 });
 $('#interviewList').addEventListener('change',e=>{
-  const a=e.target.dataset.assess,ch=e.target.dataset.chk,co=e.target.dataset.corr;
-  if(a!=null){ const it=findItem(a); it.assessment=e.target.value; const c=calcItem(it); const el=document.querySelector(`[data-calc="${a}"]`); if(el)el.textContent=c==null?'—':fmt(c); saveSession(); renderResults(); }
+  const a=e.target.dataset.assess,ch=e.target.dataset.chk;
+  if(a!=null){ const it=findItem(a); it.assessment=e.target.value; updCalc(a); saveSession(); renderResults(); }
   if(ch!=null){ const it=findItem(ch); it.checks[+e.target.dataset.ki]=e.target.checked; saveSession();
-    const card=e.target.closest('.icard'); const it2=it; const checked=it2.checks.filter(Boolean).length,tot=it2.keyPoints.filter(k=>k&&k.trim()).length;
+    const card=e.target.closest('.icard'); const checked=it.checks.filter(Boolean).length,tot=it.keyPoints.filter(k=>k&&k.trim()).length;
     const hintEl=card.querySelector('.meta .hint'); if(hintEl)hintEl.textContent=`ключевых точек отмечено ${checked}/${tot}`; }
 });
 $('#interviewList').addEventListener('input',e=>{
-  const co=e.target.dataset.corr; if(co!=null){ const it=findItem(co); it.corr=parseFloat(e.target.value)||0; const c=calcItem(it); const el=document.querySelector(`[data-calc="${co}"]`); if(el)el.textContent=c==null?'—':fmt(c); saveSession(); renderResults(); }
+  const co=e.target.dataset.corr, cm=e.target.dataset.comment;
+  if(co!=null){ const it=findItem(co); it.corr=parseFloat(e.target.value)||0; updCalc(co); saveSession(); renderResults(); }
+  if(cm!=null){ const it=findItem(cm); it.comment=e.target.value; const mc=document.querySelector(`[data-minicmt="${cm}"]`); if(mc)mc.textContent=(it.comment&&it.comment.trim())?' 💬':''; saveSession(); }
 });
 $('#interviewList').addEventListener('click',e=>{
-  const del=e.target.closest('[data-del]'),mv=e.target.closest('[data-move]');
+  const del=e.target.closest('[data-del]'),mv=e.target.closest('[data-move]'),col=e.target.closest('[data-collapse]');
+  if(col){ const it=findItem(col.dataset.collapse); it.collapsed=!it.collapsed; saveSession();
+    const card=e.target.closest('.icard'); card.classList.toggle('collapsed',it.collapsed); col.textContent=it.collapsed?'▸':'▾'; return; }
   if(del){ const i=SESSION.items.findIndex(x=>x.uid===del.dataset.del); if(i>=0){SESSION.items.splice(i,1);saveSession();updatePills();renderInterview();} }
   if(mv){ const i=SESSION.items.findIndex(x=>x.uid===mv.dataset.move); const j=i+(+mv.dataset.dir);
     if(j>=0&&j<SESSION.items.length){ const t=SESSION.items[i];SESSION.items[i]=SESSION.items[j];SESSION.items[j]=t;saveSession();renderInterview(); } }
 });
+$('#collapseAll').onclick=()=>{ if(SESSION.items.length) setAllCollapsed(true); };
+$('#expandAll').onclick=()=>{ if(SESSION.items.length) setAllCollapsed(false); };
 $('#btnClearSession').onclick=()=>{ if(!SESSION.items.length){toast('Сессия уже пуста');return;}
   if(confirm('Очистить текущую сессию? Метаданные кандидата тоже будут сброшены.')){ SESSION={meta:{candidate:'',position:'',interviewer:'',date:new Date().toISOString().slice(0,10),notes:''},items:[]}; saveSession(); updatePills(); renderInterview(); toast('Сессия очищена'); } };
 $('#btnXlsx').onclick=exportXlsx; $('#btnPdf').onclick=exportPdf;

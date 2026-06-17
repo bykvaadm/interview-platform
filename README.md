@@ -40,21 +40,55 @@
 
 > Так как это статика, состояние хранится в localStorage конкретного браузера. Чтобы перенести наполнение на другое устройство — «Матрицы → Экспорт конфигурации (JSON)», затем импорт на другом устройстве.
 
-## Изменить стартовый набор вопросов (опционально)
+## Изменить стартовый набор вопросов
 
-Стартовый банк зашит прямо в `index.html`. Проще всего редактировать вопросы прямо в приложении (вкладки «Банк» и «Матрицы»). Если хотите пересобрать стартовый набор из исходника:
+Стартовый банк зашит в `index.html`, но собирается из человекочитаемых YAML-файлов. Можно редактировать прямо в приложении (вкладки «Банк»/«Матрицы»), а можно — в исходниках и пересобрать:
 
 ```
 source/
-  build.py        # данные опросника + сборка index.html из шаблона
+  questions.yaml  # ← категории (с группами CORE/MEDIUM/SPECIFIC) и банк вопросов
+  presets.yaml    # ← готовые наборы (пресеты), ссылаются на вопросы по тексту
+  build.py        # сборка index.html: YAML + матрицы оценок -> template.html
   template.html   # разметка/стили/логика (с плейсхолдером данных)
-  test.js         # автотесты движка оценки (node + jsdom)
+  test.js         # автотесты движка оценки и UI (node + jsdom)
+  gen_yaml.py     # служебный: пересоздать YAML из predefined.json
 ```
+
+Формат `questions.yaml`:
+
+```yaml
+categories:
+  CORE:    [Linux, Helm, Kubernetes, ...]
+  MEDIUM:  [Networking, S3, ...]
+  SPECIFIC: [Openshift, Hashicorp Vault, ...]
+questions:
+  Linux:
+    - level: Low          # Low | Medium | High
+      q: Что такое systemd и зачем он нужен
+      keys:               # ключевые точки — подсказки интервьюеру (0–3 шт.)
+        - знает что systemd это подсистема инициализации
+        - знает про service, timer, socket
+```
+
+`presets.yaml` ссылается на вопросы по тексту (build.py сопоставляет по паре категория + текст):
+
+```yaml
+presets:
+  - id: builtin-base
+    name: Базовый набор (как в таблице)
+    builtin: true
+    questions:
+      Linux: [Что такое systemd и зачем он нужен, Какие права на файл бывают]
+      Helm:  [структура helm пакета]
+```
+
+Пересборка и тесты:
 
 ```bash
 cd source
-python3 build.py        # пишет ../index.html (правьте OUT_DIR при необходимости)
-node test.js            # прогон тестов (нужны: npm i jsdom)
+pip install pyyaml          # зависимость build.py (или: pip install pyyaml --break-system-packages)
+python3 build.py            # пишет ../index.html  (переопределить путь: OUT_DIR=/path python3 build.py)
+npm i jsdom && node test.js # прогон автотестов
 ```
 
 ---
