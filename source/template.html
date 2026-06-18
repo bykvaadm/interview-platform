@@ -1004,11 +1004,17 @@ function openCollabModal(){
 
 let _syncTimer = null;
 
+let _dirtyData = false;
+
 function startSyncTimer(){
   if(_syncTimer) clearInterval(_syncTimer);
   _syncTimer = setInterval(() => {
     if(sp && !sp.destroyed && !_remoteUpdate){
       sp.send(JSON.stringify({type:"collab:sync",session:SESSION}));
+      if(_dirtyData){
+        _dirtyData = false;
+        sp.send(JSON.stringify({type:"collab:syncData",data:DATA}));
+      }
     }
   }, 3000);
 }
