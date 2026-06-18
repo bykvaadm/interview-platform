@@ -406,7 +406,7 @@ function loadData(){
   if(!DATA) DATA=defaultData();
   normalizeData();
 }
-function saveData(){ try{ localStorage.setItem(LS.data,JSON.stringify(DATA)); }catch(e){ toast('Не удалось сохранить (localStorage недоступен)'); } }
+function saveData(){ try{ localStorage.setItem(LS.data,JSON.stringify(DATA)); }catch(e){ toast('Не удалось сохранить (localStorage недоступен)'); } if(!_remoteUpdate&&sp&&!sp.destroyed){ sp.send(JSON.stringify({type:'collab:syncData',data:DATA})); } }
 function loadSession(){
   try{ const r=localStorage.getItem(LS.session); if(r){ SESSION=JSON.parse(r); } }catch(e){}
   if(!SESSION||!SESSION.items){ SESSION={meta:{candidate:'',position:'',interviewer:'',date:new Date().toISOString().slice(0,10),notes:''},items:[]}; }
@@ -1102,6 +1102,15 @@ function onCollabData(data){
     SESSION = clone(data.session);
     try{ localStorage.setItem(LS.session, JSON.stringify(SESSION)); }catch(e){}
     if(view === 'interview') renderInterview();
+    _remoteUpdate = false;
+  }
+  if(data.type === 'collab:syncData' && data.data){
+    _remoteUpdate = true;
+    DATA = clone(data.data);
+    try{ localStorage.setItem(LS.data, JSON.stringify(DATA)); }catch(e){}
+    if(view === 'bank') renderBank();
+    if(view === 'matrix') renderMatrix();
+    if(view === 'prep') renderPrep();
     _remoteUpdate = false;
   }
 }

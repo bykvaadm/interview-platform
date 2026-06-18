@@ -1100,6 +1100,15 @@ function onCollabData(data){
     if(view === 'interview') renderInterview();
     _remoteUpdate = false;
   }
+  if(data.type === 'collab:syncData' && data.data){
+    _remoteUpdate = true;
+    DATA = clone(data.data);
+    try{ localStorage.setItem(LS.data, JSON.stringify(DATA)); }catch(e){}
+    if(view === 'bank') renderBank();
+    if(view === 'matrix') renderMatrix();
+    if(view === 'prep') renderPrep();
+    _remoteUpdate = false;
+  }
 }
 
 function updateCollabBtn(){
