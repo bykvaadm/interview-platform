@@ -990,7 +990,7 @@ function renderCollabModal(offerCode){
 
 function collabHost(){
   if(sp && !sp.destroyed) sp.destroy();
-  sp = new SimplePeer({ initiator: true, config: _collabIce });
+  sp = new SimplePeer({ initiator: true, config: _collabIce, trickle: false });
   _collabStep = 'host-offer';
   renderCollabModal('Генерирую приглашение…');
   sp.on('signal', (data) => {
@@ -1017,7 +1017,7 @@ function collabJoin(){
   let signalData;
   try{ signalData = JSON.parse(atob(code)); }catch(e){ toast('Неверный формат кода'); return; }
   if(sp && !sp.destroyed) sp.destroy();
-  sp = new SimplePeer({ initiator: false, config: _collabIce });
+  sp = new SimplePeer({ initiator: false, config: _collabIce, trickle: false });
   _collabStep = 'peer-answer';
   sp.on('signal', (data) => {
     const answerCode = btoa(JSON.stringify(data));
