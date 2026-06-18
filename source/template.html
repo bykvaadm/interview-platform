@@ -82,15 +82,15 @@ main{max-width:1140px;margin:0 auto;padding:22px 20px 80px}
 .btn{appearance:none;border:1px solid var(--border);background:var(--surface);color:var(--text);
   font:inherit;font-weight:560;font-size:14px;padding:9px 14px;border-radius:10px;cursor:pointer;
   display:inline-flex;align-items:center;gap:8px;transition:.12s;white-space:nowrap}
-.btn:hover{background:var(--surface-2)}
+.btn:hover{background:var(--surface-3);border-color:var(--muted-2)}
 .btn:active{transform:translateY(1px)}
 .btn-primary{background:var(--accent);color:var(--accent-text);border-color:transparent}
-.btn-primary:hover{filter:brightness(1.07)}
+.btn-primary:hover{filter:brightness(1.08);background:var(--accent);border-color:transparent}
 .btn-danger{color:var(--red);border-color:color-mix(in srgb,var(--red) 35%,var(--border))}
-.btn-danger:hover{background:var(--red-weak)}
+.btn-danger:hover{background:var(--red-weak);border-color:color-mix(in srgb,var(--red) 45%,var(--border))}
 .btn-sm{padding:6px 10px;font-size:13px;border-radius:8px}
 .btn-ghost{border-color:transparent;background:transparent}
-.btn-ghost:hover{background:var(--surface-2)}
+.btn-ghost:hover{background:var(--surface-2);border-color:transparent}
 .btn:disabled{opacity:.5;cursor:not-allowed}
 
 .input,.select,textarea{appearance:none;width:100%;font:inherit;font-size:14px;color:var(--text);
@@ -193,7 +193,7 @@ table.tbl tr:hover td{background:var(--surface-2)}
 #toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);opacity:0;
   background:var(--text);color:var(--bg);font-weight:560;font-size:14px;padding:11px 18px;border-radius:11px;
   box-shadow:var(--shadow-lg);z-index:90;transition:.25s;pointer-events:none}
-#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:auto;cursor:pointer}
 
 /* chat */
 .chat-fab{position:fixed;right:20px;bottom:20px;z-index:70;width:52px;height:52px;border-radius:50%;border:0;
@@ -412,7 +412,9 @@ const clone = o => JSON.parse(JSON.stringify(o));
 const esc = s => String(s==null?"":s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const uid = () => 'u'+Math.random().toString(36).slice(2,9)+Date.now().toString(36).slice(-4);
 const fmt = n => { const r=Math.round(n*100)/100; return (Number.isInteger(r)?r:r.toFixed(2).replace(/0$/,'')).toString(); };
-function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),2200); }
+function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._t);
+  const dur=Math.min(9000,Math.max(2800,String(msg).length*60)); t._t=setTimeout(()=>t.classList.remove('show'),dur);
+  t.onclick=()=>{ clearTimeout(t._t); t.classList.remove('show'); }; }
 
 const LS={data:'oprosnik.data.v2',session:'oprosnik.session.v2',theme:'oprosnik.theme'};
 const QUALITY_EMPTY="— не оценено";
@@ -972,9 +974,8 @@ let peer=null, peerConnected=false, isHost=false, applyingRemote=false, _collabS
 let CHAT=[], chatUnread=0;
 const DEFAULT_ICE=[
   {urls:'stun:stun.l.google.com:19302'},
-  {urls:'stun:global.stun.twilio.com:3478'},
-  {urls:'turn:openrelay.metered.ca:80',username:'openrelayproject',credential:'openrelayproject'},
-  {urls:'turn:openrelay.metered.ca:443?transport=tcp',username:'openrelayproject',credential:'openrelayproject'}
+  {urls:'stun:stun1.l.google.com:19302'},
+  {urls:'stun:global.stun.twilio.com:3478'}
 ];
 function getIce(){ let extra=[]; try{ const r=localStorage.getItem('oprosnik.turn'); if(r){ const o=JSON.parse(r); extra=Array.isArray(o)?o:[o]; } }catch(e){}
   return {iceServers:DEFAULT_ICE.concat(extra.filter(s=>s&&s.urls))}; }
@@ -1061,7 +1062,7 @@ function renderCollabModal(){
   } else {
     body=`<p class="hint" style="margin:0 0 10px">Подключите второго интервьюера напрямую (P2P, без сервера): правки опроса и чат синхронизируются в реальном времени. ${hasSP()?'':'<b style="color:var(--red)">Библиотека P2P не загрузилась — нужен интернет.</b>'}</p>
       <div class="row"><button class="btn btn-primary" id="cbHost">🎤 Создать сессию</button><button class="btn" id="cbJoinStart">🔗 Подключиться к сессии</button></div>
-      <details class="help" style="margin-top:12px"><summary>Как это работает</summary><div class="hc" style="font-size:13px">Организатор жмёт «Создать сессию», копирует код-приглашение и шлёт коллеге (мессенджер/почта). Коллега жмёт «Подключиться», вставляет код, генерирует код-ответ и шлёт обратно. Организатор вставляет код-ответ — готово. Соединение P2P, шифруется (DTLS). По умолчанию используется бесплатный STUN/TURN; за строгим NAT или с VPN/блокировщиком может не подняться.</div></details>
+      <details class="help" style="margin-top:12px"><summary>Как это работает</summary><div class="hc" style="font-size:13px">Организатор жмёт «Создать сессию», копирует код-приглашение и шлёт коллеге (мессенджер/почта). Коллега жмёт «Подключиться», вставляет код, генерирует код-ответ и шлёт обратно. Организатор вставляет код-ответ — готово. Соединение P2P, шифруется (DTLS). По умолчанию только STUN — этого хватает в одной сети. Для <b>разных сетей</b> (или при VPN/блокировщике) нужен свой TURN — впишите его ниже.</div></details>
       <details class="help" style="margin-top:8px"><summary>Свой TURN (если не соединяется)</summary><div class="hc" style="font-size:13px">
         <input class="input" id="turnUrl" placeholder="turn:host:3478"><div class="row" style="margin-top:6px"><input class="input" id="turnUser" placeholder="username"><input class="input" id="turnCred" placeholder="credential"></div>
         <button class="btn btn-sm" id="turnSave" style="margin-top:8px">Сохранить TURN</button>
