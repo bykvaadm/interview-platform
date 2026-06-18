@@ -1057,7 +1057,7 @@ function collabHost(){
 
 function collabJoin(){
   let code = document.getElementById('collabRemoteOffer')?.value?.trim();
-  if(!code){ code = try{ sessionStorage.getItem('collab.offer') }catch(e){} || ''; }
+  if(!code){ try{ code = sessionStorage.getItem('collab.offer') || ''; }catch(e){} }
   if(!code){ toast('Вставьте код приглашения от организатора'); return; }
   let signalData;
   try{ signalData = JSON.parse(atob(code)); }catch(e){ toast('Неверный формат кода'); return; }
