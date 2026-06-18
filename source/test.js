@@ -4,7 +4,7 @@ const INDEX=process.env.INDEX||path.join(__dirname,'..','index.html');
 let html=fs.readFileSync(INDEX,'utf8');
 // expose internals for testing
 html=html.replace('/* ========================= init ========================= */',
-  'window.__api={results:()=>results(),DATA:()=>DATA,SESSION:()=>SESSION,addToSession:(id)=>addToSession(id),loadPreset:(id)=>loadPreset(id),calcItem:(it)=>calcItem(it),setView:(v)=>setView(v),clear:()=>{SESSION={meta:{candidate:"",position:"",interviewer:"",date:"2026-01-01",notes:""},items:[]};}};\n/* init */');
+  'window.__api={results:()=>results(),DATA:()=>DATA,SESSION:()=>SESSION,addToSession:(id)=>addToSession(id),loadPreset:(id)=>loadPreset(id),calcItem:(it)=>calcItem(it),setView:(v)=>setView(v),applyRemote:(s)=>applyRemoteSession(s),addChat:(m,mine)=>addChat(m,mine),CHAT:()=>CHAT,clear:()=>{SESSION={meta:{candidate:"",position:"",interviewer:"",date:"2026-01-01",notes:""},items:[]};}};\n/* init */');
 
 let fails=0; const ok=(c,m)=>{ if(c){console.log("  ok -",m);} else {console.log("  FAIL -",m);fails++;} };
 const dom=new JSDOM(html,{runScripts:"dangerously",resources:undefined,url:"http://localhost/",pretendToBeVisual:true,
@@ -118,6 +118,19 @@ setTimeout(()=>{
     nt.click();
     w.document.querySelector('.tab[data-view="bank"]').click();
     ok(!w.document.querySelector('header').classList.contains('nav-open'),"selecting a tab auto-closes menu");
+
+    console.log("== collaboration + chat ==");
+    ok(w.document.querySelector('#collabBtn')!==null,"collab button present in header");
+    ok(w.document.querySelector('#chatFab')!==null && w.document.querySelector('#chatPanel')!==null,"chat fab + panel present");
+    ok(w.document.querySelector('#chatFab').hidden===true,"chat fab hidden until connected");
+    api.clear();
+    api.applyRemote({meta:{candidate:'Удалённый',position:'mid',interviewer:'',date:'2026-01-01',notes:''},
+      items:[{uid:'r1',qid:'q1',category:'Linux',difficulty:'Low',question:'Q1',keyPoints:['','',''],checks:[false,false,false],assessment:'Уверенно знает',corr:0,comment:'',collapsed:false}]});
+    SC=api.SESSION();
+    ok(SC.items.length===1 && SC.meta.candidate==='Удалённый',"remote session is adopted (two-way sync apply)");
+    const n0=api.CHAT().length; api.addChat({name:'Коллега',text:'привет',ts:Date.now()},false);
+    ok(api.CHAT().length===n0+1,"incoming chat message stored");
+    ok(w.document.querySelector('#chatLog .chat-msg')!==null,"chat message rendered in log");
 
     console.log("\n"+(fails===0?"ALL TESTS PASSED ✓":fails+" TEST(S) FAILED ✗"));
     process.exit(fails===0?0:1);

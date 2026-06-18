@@ -195,6 +195,28 @@ table.tbl tr:hover td{background:var(--surface-2)}
   box-shadow:var(--shadow-lg);z-index:90;transition:.25s;pointer-events:none}
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
+/* chat */
+.chat-fab{position:fixed;right:20px;bottom:20px;z-index:70;width:52px;height:52px;border-radius:50%;border:0;
+  background:var(--accent);color:var(--accent-text);font-size:22px;cursor:pointer;box-shadow:var(--shadow-lg);display:grid;place-items:center}
+.chat-fab:hover{filter:brightness(1.07)}
+.chat-badge{position:absolute;top:-3px;right:-3px;background:var(--red);color:#fff;font-size:11px;font-weight:700;min-width:18px;height:18px;border-radius:10px;display:grid;place-items:center;padding:0 4px}
+.chat-panel{position:fixed;right:20px;bottom:20px;z-index:71;width:340px;max-width:calc(100vw - 32px);height:460px;max-height:calc(100vh - 96px);
+  background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow-lg);display:flex;flex-direction:column;overflow:hidden}
+.chat-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 14px;border-bottom:1px solid var(--border)}
+.chat-head .icon-btn{width:30px;height:30px;font-size:14px}
+.chat-log{flex:1;overflow:auto;padding:12px;display:flex;flex-direction:column;gap:9px}
+.chat-msg{max-width:86%;display:flex;flex-direction:column;gap:2px}
+.chat-msg.me{align-self:flex-end;align-items:flex-end}
+.chat-msg.them{align-self:flex-start}
+.chat-meta{font-size:11px;color:var(--muted)}
+.chat-bub{padding:7px 11px;border-radius:13px;background:var(--surface-2);font-size:14px;line-height:1.4;word-break:break-word;white-space:pre-wrap}
+.chat-msg.me .chat-bub{background:var(--accent);color:var(--accent-text)}
+.chat-sys{align-self:center;font-size:12px;color:var(--muted-2);padding:1px 8px}
+.chat-input{display:flex;gap:8px;padding:10px;border-top:1px solid var(--border)}
+.chat-input .input{flex:1}
+.chat-input .btn{padding:9px 15px}
+@media (max-width:680px){ .chat-panel{right:8px;left:8px;bottom:8px;width:auto;height:62vh} .chat-fab{right:14px;bottom:14px} }
+
 .matrix-grid{overflow:auto}
 .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
 .seg{display:inline-flex;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:3px;gap:2px}
@@ -239,6 +261,7 @@ kbd{font-family:var(--mono);font-size:12px;background:var(--surface-2);border:1p
       <button class="tab" data-view="matrix">⚙️ Матрицы</button>
       <button class="tab" data-view="help">❓ Инструкция</button>
     </nav>
+    <button class="icon-btn" id="collabBtn" title="Совместная работа">👥</button>
     <button class="icon-btn" id="themeBtn" title="Сменить тему">🌙</button>
     <button class="icon-btn nav-toggle" id="navToggle" title="Меню" aria-label="Меню">☰</button>
   </div>
@@ -368,8 +391,16 @@ kbd{font-family:var(--mono);font-size:12px;background:var(--surface-2);border:1p
 <div class="modal-bg" id="modalBg"><div class="modal" id="modal"></div></div>
 <div id="toast"></div>
 
+<button id="chatFab" class="chat-fab" hidden title="Чат интервьюеров">💬<span id="chatBadge" class="chat-badge" hidden>0</span></button>
+<div id="chatPanel" class="chat-panel" hidden>
+  <div class="chat-head"><b>💬 Чат интервьюеров</b><button class="icon-btn" id="chatClose" title="Свернуть">✕</button></div>
+  <div class="chat-log" id="chatLog"></div>
+  <div class="chat-input"><input id="chatText" class="input" placeholder="Сообщение… (Enter)" autocomplete="off"><button class="btn btn-primary" id="chatSend" title="Отправить">▶</button></div>
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="https://unpkg.com/simple-peer@9.11.1/simplepeer.min.js"></script>
 <script>
 "use strict";
 window.PREDEFINED_DATA = /*__PREDEFINED_DATA__*/ null;
@@ -409,7 +440,7 @@ function loadSession(){
   try{ const r=localStorage.getItem(LS.session); if(r){ SESSION=JSON.parse(r); } }catch(e){}
   if(!SESSION||!SESSION.items){ SESSION={meta:{candidate:'',position:'',interviewer:'',date:new Date().toISOString().slice(0,10),notes:''},items:[]}; }
 }
-function saveSession(){ try{ localStorage.setItem(LS.session,JSON.stringify(SESSION)); }catch(e){} }
+function saveSession(){ try{ localStorage.setItem(LS.session,JSON.stringify(SESSION)); }catch(e){} collabBroadcastSession(); }
 
 function catGroup(name){ const c=(DATA.categories||[]).find(x=>x.name===name); return c?c.group:'SPECIFIC'; }
 function points(quality,diff){ const m=DATA.scoreMatrix[quality]; return m?(+m[diff]||0):0; }
@@ -502,7 +533,7 @@ function bindMeta(){
   const sel=$('#m_position');
   sel.innerHTML='<option value="">— не задан</option>'+DATA.grades.map(g=>`<option>${esc(g)}</option>`).join('');
   const map={m_candidate:'candidate',m_position:'position',m_interviewer:'interviewer',m_date:'date',m_notes:'notes'};
-  Object.entries(map).forEach(([id,key])=>{ const el=$('#'+id); el.value=SESSION.meta[key]||''; });
+  Object.entries(map).forEach(([id,key])=>{ const el=$('#'+id); if(el&&el!==document.activeElement) el.value=SESSION.meta[key]||''; });
 }
 function renderResults(){
   const r=results(); const el=$('#resultsPanel');
@@ -936,6 +967,119 @@ $('#importFile').addEventListener('change',e=>{ const f=e.target.files[0]; if(!f
 $('#modalBg').addEventListener('click',e=>{ if(e.target.id==='modalBg'||e.target.closest('[data-mclose]')) closeModal(); });
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal(); });
 
+/* ========================= collaboration + chat (WebRTC P2P) ========================= */
+let peer=null, peerConnected=false, isHost=false, applyingRemote=false, _collabStep=null, _lastSignal='', _sendTimer=null;
+let CHAT=[], chatUnread=0;
+const ICE={iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:global.stun.twilio.com:3478'}]};
+const hasSP=()=>typeof SimplePeer!=='undefined';
+const b64enc=o=>btoa(unescape(encodeURIComponent(JSON.stringify(o))));
+const b64dec=s=>JSON.parse(decodeURIComponent(escape(atob(s))));
+function myName(){ return (SESSION.meta.interviewer||'').trim() || (isHost?'Организатор':'Участник'); }
+
+/* --- session sync (two-way, debounced, last-writer-wins) --- */
+function collabSend(obj){ if(peer&&peerConnected){ try{ peer.send(JSON.stringify(obj)); }catch(e){} } }
+function collabBroadcastSession(){ if(!peerConnected||applyingRemote) return;
+  clearTimeout(_sendTimer); _sendTimer=setTimeout(()=>collabSend({t:'sync',session:SESSION}),120); }
+function applyRemoteSession(s){ applyingRemote=true; SESSION=clone(s);
+  try{ localStorage.setItem(LS.session,JSON.stringify(SESSION)); }catch(e){}
+  updatePills();
+  if(view==='interview') renderInterviewKeepFocus(); else if(view==='prep') renderPrepList();
+  applyingRemote=false; }
+function renderInterviewKeepFocus(){
+  const ae=document.activeElement; let f=null;
+  if(ae&&ae.dataset){ for(const k of ['comment','corr','assess']){ if(ae.dataset[k]){ f={k,uid:ae.dataset[k]}; if(ae.selectionStart!=null){f.ss=ae.selectionStart;f.se=ae.selectionEnd;} break; } } }
+  renderInterview();
+  if(f){ const el=document.querySelector(`[data-${f.k}="${f.uid}"]`); if(el){ try{el.focus({preventScroll:true});}catch(e){try{el.focus();}catch(_){}}
+    if(f.ss!=null&&el.setSelectionRange){ try{el.setSelectionRange(f.ss,f.se);}catch(e){} } } }
+}
+
+/* --- data channel router --- */
+function onCollabData(raw){ let m; try{ m=JSON.parse(raw.toString()); }catch(e){ return; }
+  if(!m||!m.t) return;
+  if(m.t==='sync'&&m.session){ applyRemoteSession(m.session); }
+  else if(m.t==='chat'){ addChat({name:m.name,text:m.text,ts:m.ts},false); }
+}
+
+/* --- peer lifecycle --- */
+function wirePeer(){
+  peer.on('signal',d=>{ _lastSignal=b64enc(d); if(_collabStep) renderCollabModal(); });
+  peer.on('connect',()=>{ peerConnected=true; _collabStep=null; updateCollabBtn(); showChatFab(true); closeModal();
+    toast('Соединение установлено'); addChatSystem('Соединение установлено'); if(isHost) collabSend({t:'sync',session:SESSION}); });
+  peer.on('data',onCollabData);
+  peer.on('close',()=>endPeer('Соединение закрыто'));
+  peer.on('error',e=>{ console.error('collab',e); endPeer('Ошибка соединения'); });
+}
+function endPeer(msg){ const wasConn=peerConnected; peerConnected=false; if(peer){ try{peer.destroy();}catch(e){} } peer=null; _collabStep=null; _lastSignal='';
+  updateCollabBtn(); showChatFab(false); if(msg&&(wasConn||msg.indexOf('Ошибка')===0)) toast(msg); }
+
+function collabHost(){ if(!hasSP()){ toast('Библиотека P2P не загрузилась (нужен интернет)'); return; }
+  endPeer(); isHost=true; _collabStep='host'; peer=new SimplePeer({initiator:true,trickle:false,config:ICE}); wirePeer(); renderCollabModal(); }
+function collabJoinStart(){ _collabStep='join'; renderCollabModal(); }
+function collabJoinAccept(){ if(!hasSP()){ toast('Библиотека P2P не загрузилась'); return; }
+  const code=(($('#collabIn')||{}).value||'').trim(); if(!code){ toast('Вставьте код-приглашение'); return; }
+  let sig; try{ sig=b64dec(code); }catch(e){ toast('Неверный формат кода'); return; }
+  endPeer(); isHost=false; _collabStep='join-wait'; peer=new SimplePeer({initiator:false,trickle:false,config:ICE}); wirePeer(); renderCollabModal();
+  try{ peer.signal(sig); }catch(e){ toast('Не удалось обработать код'); } }
+function collabAcceptAnswer(){ const code=(($('#collabIn')||{}).value||'').trim(); if(!code){ toast('Вставьте код-ответ'); return; }
+  if(!peer){ toast('Сначала создайте сессию'); return; }
+  let sig; try{ sig=b64dec(code); }catch(e){ toast('Неверный формат кода'); return; }
+  try{ peer.signal(sig); toast('Подключаюсь…'); }catch(e){ toast('Не удалось обработать ответ'); } }
+
+/* --- collaboration modal --- */
+function openCollabModal(){ renderCollabModal(); }
+function renderCollabModal(){
+  let body;
+  if(peerConnected){
+    body=`<div class="hint" style="color:var(--green);font-weight:600">✓ Подключено — правки опроса и чат синхронизируются в реальном времени.</div>
+      <div style="margin-top:12px"><button class="btn btn-danger" id="cbDisc" style="width:100%">Отключиться</button></div>`;
+  } else if(_collabStep==='host'){
+    const ready=!!_lastSignal;
+    body=`<div class="hint"><b>Шаг 1.</b> Отправьте этот код-приглашение второму участнику:</div>
+      <textarea class="input" readonly rows="3" style="font-family:var(--mono);font-size:12px;margin-top:6px">${ready?esc(_lastSignal):'генерирую код…'}</textarea>
+      <button class="btn btn-sm" id="cbCopy" style="margin-top:6px" ${ready?'':'disabled'}>📋 Скопировать</button>
+      <div class="sep"></div>
+      <div class="hint"><b>Шаг 2.</b> Вставьте полученный от него код-ответ:</div>
+      <textarea class="input" id="collabIn" rows="3" style="font-family:var(--mono);font-size:12px;margin-top:6px" placeholder="код-ответ"></textarea>
+      <button class="btn btn-primary" id="cbAns" style="margin-top:6px;width:100%">Подключиться</button>`;
+  } else if(_collabStep==='join'){
+    body=`<div class="hint">Вставьте код-приглашение от организатора:</div>
+      <textarea class="input" id="collabIn" rows="3" style="font-family:var(--mono);font-size:12px;margin-top:6px" placeholder="код-приглашение"></textarea>
+      <button class="btn btn-primary" id="cbJoin" style="margin-top:6px;width:100%">Сгенерировать код-ответ</button>`;
+  } else if(_collabStep==='join-wait'){
+    const ready=!!_lastSignal;
+    body=`<div class="hint">Отправьте этот код-ответ организатору и дождитесь подключения:</div>
+      <textarea class="input" readonly rows="3" style="font-family:var(--mono);font-size:12px;margin-top:6px">${ready?esc(_lastSignal):'генерирую код…'}</textarea>
+      <button class="btn btn-sm" id="cbCopy" style="margin-top:6px" ${ready?'':'disabled'}>📋 Скопировать</button>
+      <div class="hint" style="margin-top:8px;text-align:center">Ожидаю организатора…</div>`;
+  } else {
+    body=`<p class="hint" style="margin:0 0 10px">Подключите второго интервьюера напрямую (P2P, без сервера): правки опроса и чат синхронизируются в реальном времени. ${hasSP()?'':'<b style="color:var(--red)">Библиотека P2P не загрузилась — нужен интернет.</b>'}</p>
+      <div class="row"><button class="btn btn-primary" id="cbHost">🎤 Создать сессию</button><button class="btn" id="cbJoinStart">🔗 Подключиться к сессии</button></div>
+      <details class="help" style="margin-top:12px"><summary>Как это работает</summary><div class="hc" style="font-size:13px">Организатор жмёт «Создать сессию», копирует код-приглашение и шлёт коллеге (мессенджер/почта). Коллега жмёт «Подключиться», вставляет код, генерирует код-ответ и шлёт обратно. Организатор вставляет код-ответ — готово. Соединение P2P и шифруется (DTLS); за строгим NAT может не подняться (нет TURN-сервера).</div></details>`;
+  }
+  openModal(`<div class="mhead"><h3 style="margin:0">👥 Совместная работа</h3><button class="icon-btn" data-mclose>✕</button></div><div class="mbody">${body}</div>`);
+  const on=(id,fn)=>{ const e=document.getElementById(id); if(e) e.onclick=fn; };
+  on('cbHost',collabHost); on('cbJoinStart',collabJoinStart); on('cbJoin',collabJoinAccept); on('cbAns',collabAcceptAnswer);
+  on('cbDisc',()=>{ endPeer('Отключено'); closeModal(); });
+  on('cbCopy',()=>{ const t=document.querySelector('#modal textarea[readonly]'); if(t&&navigator.clipboard){ navigator.clipboard.writeText(t.value).then(()=>toast('Скопировано')); } });
+}
+function updateCollabBtn(){ const b=$('#collabBtn'); if(b){ b.textContent=peerConnected?'🟢':'👥'; b.title=peerConnected?'Подключено — совместная работа':'Совместная работа'; } }
+
+/* --- chat --- */
+function showChatFab(v){ const f=$('#chatFab'); if(f) f.hidden=!v; if(!v){ const p=$('#chatPanel'); if(p) p.hidden=true; chatUnread=0; updateChatBadge(); } }
+function toggleChat(){ const p=$('#chatPanel'); if(!p) return; p.hidden=!p.hidden; if(!p.hidden){ chatUnread=0; updateChatBadge(); renderChat(); const i=$('#chatText'); if(i) i.focus(); } }
+function updateChatBadge(){ const b=$('#chatBadge'); if(b){ b.textContent=chatUnread; b.hidden=chatUnread<=0; } }
+function addChat(m,mine){ CHAT.push({name:m.name,text:m.text,ts:m.ts||Date.now(),mine:!!mine}); if(CHAT.length>500) CHAT.shift();
+  const p=$('#chatPanel'); if(!mine&&(!p||p.hidden)){ chatUnread++; updateChatBadge(); } renderChat(); }
+function addChatSystem(text){ CHAT.push({sys:true,text,ts:Date.now()}); renderChat(); }
+function renderChat(){ const log=$('#chatLog'); if(!log) return;
+  log.innerHTML=CHAT.map(m=> m.sys
+    ? `<div class="chat-sys">${esc(m.text)}</div>`
+    : `<div class="chat-msg ${m.mine?'me':'them'}"><div class="chat-meta">${esc(m.name)} · ${new Date(m.ts).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})}</div><div class="chat-bub">${esc(m.text)}</div></div>`
+  ).join(''); log.scrollTop=log.scrollHeight; }
+function sendChat(){ const i=$('#chatText'); if(!i) return; const text=i.value.trim(); if(!text) return;
+  if(!peerConnected){ toast('Нет соединения с участником'); return; }
+  const ts=Date.now(); collabSend({t:'chat',name:myName(),text,ts}); addChat({name:myName(),text,ts},true); i.value=''; i.focus(); }
+
 /* ========================= init ========================= */
 (function init(){
   let th='light'; try{ th=localStorage.getItem(LS.theme)||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'); }catch(e){}
@@ -943,6 +1087,12 @@ document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal(); });
   loadData(); loadSession();
   if(!DATA||!DATA.questions){ DATA=defaultData(); }
   updatePills(); setView('prep');
+  updateCollabBtn(); showChatFab(false);
+  $('#collabBtn').onclick=openCollabModal;
+  $('#chatFab').onclick=toggleChat;
+  $('#chatClose').onclick=()=>{ const p=$('#chatPanel'); if(p) p.hidden=true; };
+  $('#chatSend').onclick=sendChat;
+  $('#chatText').addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); sendChat(); } });
 })();
 </script>
 </body>
