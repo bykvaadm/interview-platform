@@ -1004,6 +1004,17 @@ function openCollabModal(){
   if(acceptBtn) acceptBtn.onclick = collabAcceptAnswer;
 }
 
+let _syncTimer = null;
+
+function startSyncTimer(){
+  if(_syncTimer) clearInterval(_syncTimer);
+  _syncTimer = setInterval(() => {
+    if(sp && !sp.destroyed && !_remoteUpdate){
+      sp.send(JSON.stringify({type:'collab:sync',session:SESSION}));
+    }
+  }, 3000);
+}
+
 function collabHost(){
   if(sp && !sp.destroyed) sp.destroy();
   toast('Генерирую приглашение…');
@@ -1026,6 +1037,7 @@ function collabHost(){
   sp.on('connect', () => {
     toast('Подключено!');
     sp.send(JSON.stringify({type:'collab:sync',session:SESSION}));
+    startSyncTimer();
     updateCollabBtn();
   });
   sp.on('data', (raw) => { try{ onCollabData(JSON.parse(raw.toString())); }catch(e){} });
@@ -1051,6 +1063,8 @@ function collabJoin(){
   });
   sp.on('connect', () => {
     toast('Подключено к организатору!');
+    sp.send(JSON.stringify({type:'collab:sync',session:SESSION}));
+    startSyncTimer();
     updateCollabBtn();
   });
   sp.on('data', (raw) => { try{ onCollabData(JSON.parse(raw.toString())); }catch(e){} });
@@ -1059,6 +1073,8 @@ function collabJoin(){
   sp.signal(signalData);
   updateCollabBtn();
 }
+
+
 
 function collabAcceptAnswer(){
   const code = document.getElementById('collabAnswerCode')?.value?.trim();
@@ -1071,6 +1087,7 @@ function collabAcceptAnswer(){
 }
 
 function collabDisconnect(){
+  if(_syncTimer){ clearInterval(_syncTimer); _syncTimer = null; }
   if(sp && !sp.destroyed) sp.destroy();
   sp = null;
   closeModal();
