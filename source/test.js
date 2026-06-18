@@ -108,6 +108,17 @@ setTimeout(()=>{
     tgl.click(); SC=api.SESSION();
     ok(SC.items.every(it=>!it.collapsed),"toggle → expands all");
 
+    console.log("== mobile nav ==");
+    const nt=w.document.querySelector('#navToggle');
+    ok(nt!==null,"mobile nav toggle button present");
+    nt.click();
+    ok(w.document.querySelector('header').classList.contains('nav-open'),"nav toggle opens menu");
+    nt.click();
+    ok(!w.document.querySelector('header').classList.contains('nav-open'),"nav toggle closes menu");
+    nt.click();
+    w.document.querySelector('.tab[data-view="bank"]').click();
+    ok(!w.document.querySelector('header').classList.contains('nav-open'),"selecting a tab auto-closes menu");
+
     console.log("\n"+(fails===0?"ALL TESTS PASSED ✓":fails+" TEST(S) FAILED ✗"));
     process.exit(fails===0?0:1);
   }catch(e){ console.error("ERROR during test:",e); process.exit(2); }
