@@ -1034,6 +1034,7 @@ function collabHost(){
       const code = btoa(JSON.stringify(sdp));
       const el = document.getElementById('collabOfferCode');
       if(el && !el.value.startsWith('ey')){ el.value = code; el.style.background='var(--green-weak)'; }
+      try{ sessionStorage.setItem('collab.offer', code); }catch(e){}
       toast('Код приглашения готов!');
     }
     if(++tries > 40){ clearInterval(timer); toast('Не удалось сгенерировать приглашение'); }
@@ -1043,7 +1044,7 @@ function collabHost(){
     sp.send(JSON.stringify({type:'collab:sync',session:SESSION}));
     startSyncTimer();
     updateCollabBtn();
-    try{ sessionStorage.setItem('collab.info',JSON.stringify({role:'host'})); }catch(e){}
+    try{ sessionStorage.setItem('collab.info',JSON.stringify({role:'host'})); const of = document.getElementById('collabOfferCode')?.value; if(of) sessionStorage.setItem('collab.offer',of); }catch(e){}
     setTimeout(() => { if(document.querySelector('.modal-bg.open')) closeModal(); }, 2000);
   });
   sp.on('data', (raw) => { try{ onCollabData(JSON.parse(raw.toString())); }catch(e){} });
@@ -1141,12 +1142,23 @@ function updateCollabBtn(){
   }catch(e){}
   try{
     const collabInfo = sessionStorage.getItem('collab.info');
-    if(collabInfo){
+    if(collabInfo && collabInfo !== '{}'){
       const info = JSON.parse(collabInfo);
-      setTimeout(() => {
+      setTimeout(async () => {
         toast('Переподключение к собеседованию…');
-        openCollabModal();
-      }, 1000);
+        const btn = document.getElementById('collabBtn');
+        if(btn) btn.click();
+        await new Promise(r => setTimeout(r, 600));
+        if(info.role === 'guest'){
+          const offer = sessionStorage.getItem('collab.offer');
+          if(offer){
+            const el = document.getElementById('collabRemoteOffer');
+            if(el) el.value = offer;
+            const join = document.getElementById('collabJoin');
+            if(join) join.click();
+          }
+        }
+      }, 800);
     }
   }catch(e){}
 })();
