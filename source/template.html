@@ -409,7 +409,7 @@ function loadSession(){
   try{ const r=localStorage.getItem(LS.session); if(r){ SESSION=JSON.parse(r); } }catch(e){}
   if(!SESSION||!SESSION.items){ SESSION={meta:{candidate:'',position:'',interviewer:'',date:new Date().toISOString().slice(0,10),notes:''},items:[]}; }
 }
-function saveSession(){ try{ localStorage.setItem(LS.session,JSON.stringify(SESSION)); }catch(e){} }
+function saveSession(){ try{ localStorage.setItem(LS.session,JSON.stringify(SESSION)); }catch(e){} if(!_remoteUpdate&&sp&&!sp.destroyed){ sp.send(JSON.stringify({type:'collab:sync',session:SESSION})); } }
 
 function catGroup(name){ const c=(DATA.categories||[]).find(x=>x.name===name); return c?c.group:'SPECIFIC'; }
 function points(quality,diff){ const m=DATA.scoreMatrix[quality]; return m?(+m[diff]||0):0; }
