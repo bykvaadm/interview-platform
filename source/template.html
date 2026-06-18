@@ -1104,6 +1104,7 @@ function onCollabData(data){
     _remoteUpdate = true;
     DATA = clone(data.data);
     try{ localStorage.setItem(LS.data, JSON.stringify(DATA)); }catch(e){}
+    updatePills();
     if(view === 'bank') renderBank();
     if(view === 'matrix') renderMatrix();
     if(view === 'prep') renderPrep();
