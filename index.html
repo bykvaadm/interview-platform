@@ -939,48 +939,61 @@ $('#modalBg').addEventListener('click',e=>{ if(e.target.id==='modalBg'||e.target
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal(); });
 
 /* ========================= collaboration (SimplePeer) ========================= */
-let sp = null, _remoteUpdate = false, _collabStep = null;
+let sp = null, _remoteUpdate = false;
 const _collabIce = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
 function openCollabModal(){
-  _collabStep = null;
-  renderCollabModal();
-}
-
-function renderCollabModal(offerCode){
   const conn = sp && !sp.destroyed;
-  let body = '';
-  if(conn){
-    body = `<div class="hint" style="color:var(--green);font-weight:600;text-align:center">✓ Подключено</div>
-      <p class="hint">Данные синхронизируются в реальном времени.</p>
-      <div style="text-align:center;margin-top:10px"><button class="btn btn-danger" id="collabDisconnect">Отключиться</button></div>`;
-  } else if(_collabStep === 'host-offer'){
-    body = `<div class="hint" style="margin-bottom:8px">Код приглашения для второго участника (скопируйте и отправьте):</div>
-      <textarea class="input" id="collabSdp" rows="4" readonly style="font-size:13px;font-family:var(--mono)">${esc(offerCode||'')}</textarea>
-      <div style="margin-top:8px"><button class="btn" onclick="navigator.clipboard.writeText(document.getElementById('collabSdp').value).then(()=>toast('Код скопирован'))" style="width:100%">📋 Скопировать код</button></div>
-      <div class="sep"></div>
-      <div><label class="fld">Код ответа от второго участника:</label>
-      <textarea class="input" id="collabAnswer" rows="4" placeholder="вставьте код ответа"></textarea></div>
-      <div style="margin-top:8px"><button class="btn btn-primary" id="collabAcceptAnswer" style="width:100%">🔗 Принять ответ и подключиться</button></div>`;
-  } else if(_collabStep === 'peer-answer'){
-    body = `<div class="hint" style="margin-bottom:8px">Код ответа для организатора (скопируйте и отправьте):</div>
-      <textarea class="input" id="collabSdp" rows="4" readonly style="font-size:13px;font-family:var(--mono)">${esc(offerCode||'')}</textarea>
-      <div style="margin-top:8px"><button class="btn" onclick="navigator.clipboard.writeText(document.getElementById('collabSdp').value).then(()=>toast('Код скопирован'))" style="width:100%">📋 Скопировать код</button></div>
-      <div class="hint" style="margin-top:8px;text-align:center">Ожидаем подключения организатора…</div>`;
-  } else {
-    body = `<details class="help" style="margin-bottom:8px"><summary>Инструкция</summary>
-        <div class="hc" style="font-size:13px">
-        <b>Организатор</b> нажимает «Создать сессию» → копирует код приглашения → отправляет его второму участнику.<br><br>
-        <b>Второй участник</b> нажимает «Подключиться» → вставляет код приглашения → копирует код ответа → отправляет его организатору.<br><br>
-        <b>Организатор</b> вставляет код ответа → соединение установлено.</div></details>
-        <div class="row" style="justify-content:center"><button class="btn btn-primary" id="collabHost">🎤 Создать сессию</button></div>
-        <div class="sep"></div>
-        <div><label class="fld">Код приглашения организатора:</label>
-        <textarea class="input" id="collabOffer" rows="4" placeholder="вставьте сюда код, который прислал организатор"></textarea></div>
-        <div style="margin-top:8px"><button class="btn" id="collabJoin" style="width:100%">🔗 Подключиться</button></div>`;
-  }
-  openModal(`<div class="mhead"><h3 style="margin:0">👥 Совместное редактирование</h3><button class="icon-btn" data-mclose>✕</button></div><div class="mbody">${body}</div>`);
-  // Bind buttons after rendering
+  const statusHtml = conn
+    ? `<div class="hint" style="color:var(--green);font-weight:600;text-align:center;margin-bottom:10px">✓ Подключено · данные синхронизируются</div>`
+    : `<details class="help" style="margin-bottom:8px"><summary>Инструкция</summary>
+      <div class="hc" style="font-size:13px">
+      <b>Организатор</b> нажимает «Создать сессию» → копирует код приглашения → отправляет второму участнику.<br><br>
+      <b>Второй участник</b> вставляет код приглашения в поле ниже → нажимает «Подключиться» → копирует код ответа → отправляет организатору.<br><br>
+      <b>Организатор</b> вставляет код ответа в верхнее поле → нажимает «Принять ответ» → соединение установлено.</div></details>`;
+
+  openModal(`<div class="mhead"><h3 style="margin:0">👥 Совместное редактирование</h3><button class="icon-btn" data-mclose>✕</button></div>
+    <div class="mbody">
+      ${statusHtml}
+
+      <div style="display:grid;gap:14px">
+        <!-- Блок организатора -->
+        <div style="background:var(--surface-2);border-radius:12px;padding:12px">
+          <div class="spread"><h4 style="margin:0">🎤 Организатор</h4>
+            <div class="row" style="gap:6px">
+              <button class="btn btn-sm btn-primary" id="collabHost" ${conn?'disabled':''}>Создать сессию</button>
+              ${conn?`<button class="btn btn-sm btn-danger" id="collabDisconnect">Отключиться</button>`:''}
+            </div>
+          </div>
+          <div style="margin-top:10px">
+            <label class="fld">Код приглашения (для отправки второму участнику):</label>
+            <textarea class="input" id="collabOfferCode" rows="4" readonly style="font-size:13px;font-family:var(--mono)" placeholder="нажмите «Создать сессию» — здесь появится код"></textarea>
+            <div style="margin-top:6px"><button class="btn btn-sm" id="collabCopyOffer" onclick="navigator.clipboard.writeText(document.getElementById('collabOfferCode').value).then(()=>toast('Код скопирован'))">📋 Скопировать</button></div>
+          </div>
+          <div style="margin-top:10px">
+            <label class="fld">Код ответа от второго участника (вставьте сюда):</label>
+            <textarea class="input" id="collabAnswerCode" rows="4" placeholder="вставьте код, который прислал второй участник"></textarea>
+            <div style="margin-top:6px"><button class="btn btn-sm btn-primary" id="collabAcceptAnswer" ${conn?'disabled':''}>🔗 Принять ответ</button></div>
+          </div>
+        </div>
+
+        <!-- Блок второго участника -->
+        <div style="background:var(--surface-2);border-radius:12px;padding:12px">
+          <div class="spread"><h4 style="margin:0">📞 Второй участник</h4>
+            <button class="btn btn-sm" id="collabJoin" ${conn?'disabled':''}>🔗 Подключиться</button></div>
+          <div style="margin-top:10px">
+            <label class="fld">Код приглашения от организатора (вставьте сюда):</label>
+            <textarea class="input" id="collabRemoteOffer" rows="4" placeholder="вставьте код, который прислал организатор"></textarea>
+          </div>
+          <div style="margin-top:10px">
+            <label class="fld">Код ответа (отправьте организатору):</label>
+            <textarea class="input" id="collabAnswerCodeOut" rows="4" readonly style="font-size:13px;font-family:var(--mono)" placeholder="после нажатия «Подключиться» здесь появится код"></textarea>
+            <div style="margin-top:6px"><button class="btn btn-sm" id="collabCopyAnswer" onclick="navigator.clipboard.writeText(document.getElementById('collabAnswerCodeOut').value).then(()=>toast('Код скопирован'))">📋 Скопировать</button></div>
+          </div>
+        </div>
+      </div>
+    </div>`);
+  // Bind events
   const hostBtn = document.getElementById('collabHost');
   const joinBtn = document.getElementById('collabJoin');
   const discBtn = document.getElementById('collabDisconnect');
@@ -993,36 +1006,26 @@ function renderCollabModal(offerCode){
 
 function collabHost(){
   if(sp && !sp.destroyed) sp.destroy();
+  toast('Генерирую приглашение…');
+  const codeEl = document.getElementById('collabOfferCode');
+  if(codeEl) codeEl.value = '⏳ генерация…';
   sp = new SimplePeer({ initiator: true, config: _collabIce, trickle: true });
-  _collabStep = 'host-offer';
-  renderCollabModal('Генерирую приглашение…');
-  // Poll for local SDP offer (no need to wait for signal event)
-  let sdpTries = 0;
-  const sdpTimer = setInterval(() => {
+  // Poll for local SDP offer
+  let tries = 0;
+  const timer = setInterval(() => {
     if(sp && !sp.destroyed && sp._pc && sp._pc.localDescription && sp._pc.localDescription.sdp){
-      clearInterval(sdpTimer);
+      clearInterval(timer);
       const sdp = { type: 'offer', sdp: sp._pc.localDescription.sdp };
       const code = btoa(JSON.stringify(sdp));
-      if(document.getElementById('collabSdp')) return; // already showing
-      _collabStep = 'host-offer';
-      renderCollabModal(code);
+      const el = document.getElementById('collabOfferCode');
+      if(el && !el.value.startsWith('ey')){ el.value = code; el.style.background='var(--green-weak)'; }
+      toast('Код приглашения готов!');
     }
-    if(++sdpTries > 40){ clearInterval(sdpTimer); }
+    if(++tries > 40){ clearInterval(timer); toast('Не удалось сгенерировать приглашение'); }
   }, 250);
-  sp.on('signal', (data) => {
-    clearInterval(sdpTimer);
-    if(data.sdp){
-      const code = btoa(JSON.stringify(data.type ? {type:data.type,sdp:data.sdp} : data));
-      if(document.getElementById('collabSdp')) return;
-      _collabStep = 'host-offer';
-      renderCollabModal(code);
-    }
-  });
   sp.on('connect', () => {
     toast('Подключено!');
     sp.send(JSON.stringify({type:'collab:sync',session:SESSION}));
-    _collabStep = null;
-    closeModal();
     updateCollabBtn();
   });
   sp.on('data', (raw) => { try{ onCollabData(JSON.parse(raw.toString())); }catch(e){} });
@@ -1032,21 +1035,22 @@ function collabHost(){
 }
 
 function collabJoin(){
-  const code = document.getElementById('collabOffer')?.value?.trim();
+  const code = document.getElementById('collabRemoteOffer')?.value?.trim();
   if(!code){ toast('Вставьте код приглашения от организатора'); return; }
   let signalData;
   try{ signalData = JSON.parse(atob(code)); }catch(e){ toast('Неверный формат кода'); return; }
   if(sp && !sp.destroyed) sp.destroy();
-  sp = new SimplePeer({ initiator: false, config: _collabIce, trickle: false });
-  _collabStep = 'peer-answer';
+  sp = new SimplePeer({ initiator: false, config: _collabIce });
+  const outEl = document.getElementById('collabAnswerCodeOut');
+  if(outEl) outEl.value = '⏳ генерация ответа…';
   sp.on('signal', (data) => {
-    const answerCode = btoa(JSON.stringify(data));
-    renderCollabModal(answerCode);
+    if(outEl && data.sdp){
+      const sdp = { type: 'answer', sdp: data.sdp };
+      outEl.value = btoa(JSON.stringify(sdp));
+    }
   });
   sp.on('connect', () => {
     toast('Подключено к организатору!');
-    _collabStep = null;
-    closeModal();
     updateCollabBtn();
   });
   sp.on('data', (raw) => { try{ onCollabData(JSON.parse(raw.toString())); }catch(e){} });
@@ -1054,11 +1058,10 @@ function collabJoin(){
   sp.on('error', (err) => { console.error(err); toast('Ошибка: ' + (err.message||'соединение')); });
   sp.signal(signalData);
   updateCollabBtn();
-  toast('Подключаюсь…');
 }
 
 function collabAcceptAnswer(){
-  const code = document.getElementById('collabAnswer')?.value?.trim();
+  const code = document.getElementById('collabAnswerCode')?.value?.trim();
   if(!code){ toast('Вставьте код ответа от второго участника'); return; }
   if(!sp || sp.destroyed){ toast('Сначала создайте сессию'); return; }
   let signalData;
@@ -1070,7 +1073,6 @@ function collabAcceptAnswer(){
 function collabDisconnect(){
   if(sp && !sp.destroyed) sp.destroy();
   sp = null;
-  _collabStep = null;
   closeModal();
   updateCollabBtn();
   toast('Отключено');
