@@ -936,77 +936,121 @@ $('#importFile').addEventListener('change',e=>{ const f=e.target.files[0]; if(!f
 $('#modalBg').addEventListener('click',e=>{ if(e.target.id==='modalBg'||e.target.closest('[data-mclose]')) closeModal(); });
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal(); });
 
-/* ========================= collaboration (PeerJS) ========================= */
-let peer = null, conn = null, _remoteUpdate = false, _collabId = null;
+/* ========================= collaboration (SimplePeer) ========================= */
+let sp = null, _remoteUpdate = false, _collabStep = null;
+const _collabIce = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
 function openCollabModal(){
-  const connected = conn && conn.open;
-  const idHtml = connected ? `<div style="margin:8px 0;font-size:22px;font-weight:800;text-align:center;font-family:var(--mono)">${esc(peer?._id||'…')}</div>` : '';
-  openModal(`<div class="mhead"><h3 style="margin:0">👥 Совместное редактирование</h3><button class="icon-btn" data-mclose>✕</button></div>
-    <div class="mbody">
-      ${connected
-        ? `<div class="hint" style="color:var(--green);font-weight:600;text-align:center">✓ Подключено</div>
-           <p>Peer ID этой сессии:${idHtml}</p>
-           <p class="hint">Поделитесь этим ID со вторым участником — он введёт его в своей копии приложения.</p>
-           <div style="text-align:center;margin-top:10px"><button class="btn btn-danger" id="collabDisconnect">Отключиться</button></div>`
-        : `<div class="row" style="justify-content:center">
-             <button class="btn btn-primary" id="collabHost">🎤 Создать сессию</button>
-           </div>
-           <div class="sep"></div>
-           <div><label class="fld">Peer ID организатора</label>
-             <div class="row"><input class="input grow" id="collabPeerInput" placeholder="введите ID">
-             <button class="btn" id="collabJoin">Подключиться</button></div></div>`}
-    </div>`);
+  _collabStep = null;
+  renderCollabModal();
+}
+
+function renderCollabModal(offerCode){
+  const conn = sp && !sp.destroyed;
+  let body = '';
+  if(conn){
+    body = `<div class="hint" style="color:var(--green);font-weight:600;text-align:center">✓ Подключено</div>
+      <p class="hint">Данные синхронизируются в реальном времени.</p>
+      <div style="text-align:center;margin-top:10px"><button class="btn btn-danger" id="collabDisconnect">Отключиться</button></div>`;
+  } else if(_collabStep === 'host-offer'){
+    body = `<div class="hint" style="margin-bottom:8px">Код приглашения для второго участника (скопируйте и отправьте):</div>
+      <textarea class="input" id="collabSdp" rows="4" readonly style="font-size:13px;font-family:var(--mono)">${esc(offerCode||'')}</textarea>
+      <div style="margin-top:8px"><button class="btn" onclick="navigator.clipboard.writeText(document.getElementById('collabSdp').value).then(()=>toast('Код скопирован'))" style="width:100%">📋 Скопировать код</button></div>
+      <div class="sep"></div>
+      <div><label class="fld">Код ответа от второго участника:</label>
+      <textarea class="input" id="collabAnswer" rows="4" placeholder="вставьте код ответа"></textarea></div>
+      <div style="margin-top:8px"><button class="btn btn-primary" id="collabAcceptAnswer" style="width:100%">🔗 Принять ответ и подключиться</button></div>`;
+  } else if(_collabStep === 'peer-answer'){
+    body = `<div class="hint" style="margin-bottom:8px">Код ответа для организатора (скопируйте и отправьте):</div>
+      <textarea class="input" id="collabSdp" rows="4" readonly style="font-size:13px;font-family:var(--mono)">${esc(offerCode||'')}</textarea>
+      <div style="margin-top:8px"><button class="btn" onclick="navigator.clipboard.writeText(document.getElementById('collabSdp').value).then(()=>toast('Код скопирован'))" style="width:100%">📋 Скопировать код</button></div>
+      <div class="hint" style="margin-top:8px;text-align:center">Ожидаем подключения организатора…</div>`;
+  } else {
+    body = `<details class="help" style="margin-bottom:8px"><summary>Инструкция</summary>
+        <div class="hc" style="font-size:13px">
+        <b>Организатор</b> нажимает «Создать сессию» → копирует код приглашения → отправляет его второму участнику.<br><br>
+        <b>Второй участник</b> нажимает «Подключиться» → вставляет код приглашения → копирует код ответа → отправляет его организатору.<br><br>
+        <b>Организатор</b> вставляет код ответа → соединение установлено.</div></details>
+        <div class="row" style="justify-content:center"><button class="btn btn-primary" id="collabHost">🎤 Создать сессию</button></div>
+        <div class="sep"></div>
+        <div><label class="fld">Код приглашения организатора:</label>
+        <textarea class="input" id="collabOffer" rows="4" placeholder="вставьте сюда код, который прислал организатор"></textarea></div>
+        <div style="margin-top:8px"><button class="btn" id="collabJoin" style="width:100%">🔗 Подключиться</button></div>`;
+  }
+  openModal(`<div class="mhead"><h3 style="margin:0">👥 Совместное редактирование</h3><button class="icon-btn" data-mclose>✕</button></div><div class="mbody">${body}</div>`);
   const hostBtn = document.getElementById('collabHost');
   const joinBtn = document.getElementById('collabJoin');
   const discBtn = document.getElementById('collabDisconnect');
+  const acceptBtn = document.getElementById('collabAcceptAnswer');
   if(hostBtn) hostBtn.onclick = collabHost;
   if(joinBtn) joinBtn.onclick = collabJoin;
   if(discBtn) discBtn.onclick = collabDisconnect;
+  if(acceptBtn) acceptBtn.onclick = collabAcceptAnswer;
 }
 
 function collabHost(){
-  if(peer) peer.destroy();
-  peer = new Peer();
-  peer.on('open', (id) => {
-    _collabId = id;
-    toast('Сессия создана: ' + id);
-    peer.on('connection', (incoming) => {
-      conn = incoming;
-      conn.on('data', onCollabData);
-      conn.on('close', () => { conn = null; toast('Участник отключился'); updateCollabBtn(); });
-      toast('Участник подключился!');
-      conn.send({type:'collab:sync',session:SESSION});
-      updateCollabBtn();
-    });
+  if(sp && !sp.destroyed) sp.destroy();
+  sp = new SimplePeer({ initiator: true, config: _collabIce });
+  _collabStep = 'host-offer';
+  renderCollabModal('Генерирую приглашение…');
+  sp.on('signal', (data) => {
+    const code = btoa(JSON.stringify(data));
+    _collabStep = 'host-offer';
+    renderCollabModal(code);
+  });
+  sp.on('connect', () => {
+    toast('Подключено!');
+    sp.send(JSON.stringify({type:'collab:sync',session:SESSION}));
+    _collabStep = null;
     closeModal();
     updateCollabBtn();
   });
-  peer.on('error', (err) => { toast('Ошибка PeerJS: ' + err.type); });
+  sp.on('data', (raw) => { try{ onCollabData(JSON.parse(raw.toString())); }catch(e){} });
+  sp.on('close', () => { updateCollabBtn(); });
+  sp.on('error', (err) => { console.error(err); toast('Ошибка: ' + (err.message||'соединение')); });
+  updateCollabBtn();
 }
 
 function collabJoin(){
-  const hostId = document.getElementById('collabPeerInput')?.value.trim();
-  if(!hostId){ toast('Введите ID организатора'); return; }
-  if(peer) peer.destroy();
-  peer = new Peer();
-  peer.on('open', () => {
-    conn = peer.connect(hostId, {reliable:true});
-    conn.on('open', () => {
-      toast('Подключено!');
-      conn.on('data', onCollabData);
-      conn.on('close', () => { conn = null; toast('Соединение разорвано'); updateCollabBtn(); });
-      closeModal();
-      updateCollabBtn();
-    });
+  const code = document.getElementById('collabOffer')?.value?.trim();
+  if(!code){ toast('Вставьте код приглашения от организатора'); return; }
+  let signalData;
+  try{ signalData = JSON.parse(atob(code)); }catch(e){ toast('Неверный формат кода'); return; }
+  if(sp && !sp.destroyed) sp.destroy();
+  sp = new SimplePeer({ initiator: false, config: _collabIce });
+  _collabStep = 'peer-answer';
+  sp.on('signal', (data) => {
+    const answerCode = btoa(JSON.stringify(data));
+    renderCollabModal(answerCode);
   });
-  peer.on('error', (err) => { toast('Ошибка PeerJS: ' + err.type); });
+  sp.on('connect', () => {
+    toast('Подключено к организатору!');
+    _collabStep = null;
+    closeModal();
+    updateCollabBtn();
+  });
+  sp.on('data', (raw) => { try{ onCollabData(JSON.parse(raw.toString())); }catch(e){} });
+  sp.on('close', () => { updateCollabBtn(); });
+  sp.on('error', (err) => { console.error(err); toast('Ошибка: ' + (err.message||'соединение')); });
+  sp.signal(signalData);
+  updateCollabBtn();
+  toast('Подключаюсь…');
+}
+
+function collabAcceptAnswer(){
+  const code = document.getElementById('collabAnswer')?.value?.trim();
+  if(!code){ toast('Вставьте код ответа от второго участника'); return; }
+  if(!sp || sp.destroyed){ toast('Сначала создайте сессию'); return; }
+  let signalData;
+  try{ signalData = JSON.parse(atob(code)); }catch(e){ toast('Неверный формат кода'); return; }
+  sp.signal(signalData);
+  toast('Обрабатываю ответ…');
 }
 
 function collabDisconnect(){
-  if(conn) { conn.close(); conn = null; }
-  if(peer) { peer.destroy(); peer = null; }
-  _collabId = null;
+  if(sp && !sp.destroyed) sp.destroy();
+  sp = null;
+  _collabStep = null;
   closeModal();
   updateCollabBtn();
   toast('Отключено');
@@ -1020,17 +1064,16 @@ function onCollabData(data){
     try{ localStorage.setItem(LS.session, JSON.stringify(SESSION)); }catch(e){}
     if(view === 'interview') renderInterview();
     _remoteUpdate = false;
-    toast('Данные синхронизированы');
   }
 }
 
 function updateCollabBtn(){
   const btn = document.getElementById('collabBtn');
   if(!btn) return;
-  btn.textContent = (conn && conn.open) ? '🟢' : '👥';
+  btn.textContent = (sp && !sp.destroyed) ? '🟢' : '👥';
 }
 
-/* ========================= init ========================= */
+/* ========================= init ========================= *//* ========================= init ========================= */
 (function init(){
   let th='light'; try{ th=localStorage.getItem(LS.theme)||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'); }catch(e){}
   document.documentElement.setAttribute('data-theme',th); $('#themeBtn').textContent=th==='dark'?'☀️':'🌙';
