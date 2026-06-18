@@ -1109,6 +1109,7 @@ function onCollabData(data){
     _remoteUpdate = true;
     SESSION = clone(data.session);
     try{ localStorage.setItem(LS.session, JSON.stringify(SESSION)); }catch(e){}
+    updatePills();
     if(view === 'interview') renderInterview();
     _remoteUpdate = false;
   }
@@ -1142,27 +1143,33 @@ function updateCollabBtn(){
     if(savedId) _collabId = savedId;
   }catch(e){}
   try{
-    const collabInfo = sessionStorage.getItem('collab.info');
+    var collabInfo = sessionStorage.getItem('collab.info');
     if(collabInfo && collabInfo !== '{}'){
-      const info = JSON.parse(collabInfo);
-      setTimeout(async () => {
+      var info = JSON.parse(collabInfo);
+      setTimeout(function(){
         toast('Переподключение к собеседованию…');
-        const btn = document.getElementById('collabBtn');
+        var btn = document.getElementById('collabBtn');
         if(btn) btn.click();
-        await new Promise(r => setTimeout(r, 600));
-        if(info.role === 'host'){
-          const hostBtn = document.getElementById('collabHost');
-          if(hostBtn) hostBtn.click();
-        } else if(info.role === 'guest'){
-          const offer = sessionStorage.getItem('collab.offer');
-          if(offer){
-            const el = document.getElementById('collabRemoteOffer');
-            if(el) el.value = offer;
-            const join = document.getElementById('collabJoin');
-            if(join) join.click();
-          }
-        }
-      }, 800);
+        var checkModal = function(attempts){
+          if(attempts <= 0) return;
+          setTimeout(function(){
+            if(info.role === 'host'){
+              var hb = document.getElementById('collabHost');
+              if(hb){ hb.click(); return; }
+            } else if(info.role === 'guest'){
+              var el = document.getElementById('collabRemoteOffer');
+              if(el){
+                var offer = (function(){ try{ return sessionStorage.getItem('collab.offer'); }catch(e){} })();
+                if(offer) el.value = offer;
+                var jb = document.getElementById('collabJoin');
+                if(jb){ jb.click(); return; }
+              }
+            }
+            checkModal(attempts - 1);
+          }, 300);
+        };
+        checkModal(15);
+      }, 1500);
     }
     try{ sessionStorage.removeItem('collab.closed'); }catch(e){}
   }catch(e){}

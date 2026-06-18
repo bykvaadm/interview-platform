@@ -1113,6 +1113,7 @@ function onCollabData(data){
     _remoteUpdate = true;
     SESSION = clone(data.session);
     try{ localStorage.setItem(LS.session, JSON.stringify(SESSION)); }catch(e){}
+    updatePills();
     if(view === 'interview') renderInterview();
     _remoteUpdate = false;
   }
@@ -1147,15 +1148,35 @@ function updateCollabBtn(){
     if(savedId) _collabId = savedId;
   }catch(e){}
   try{
-    // Restore collab on page reload
-    const collabInfo = sessionStorage.getItem('collab.info');
-    if(collabInfo){
-      const info = JSON.parse(collabInfo);
-      setTimeout(() => {
+    var collabInfo = sessionStorage.getItem('collab.info');
+    if(collabInfo && collabInfo !== '{}'){
+      var info = JSON.parse(collabInfo);
+      setTimeout(function(){
         toast('Переподключение к собеседованию…');
-        openCollabModal();
-      }, 1000);
+        var btn = document.getElementById('collabBtn');
+        if(btn) btn.click();
+        var checkModal = function(attempts){
+          if(attempts <= 0) return;
+          setTimeout(function(){
+            if(info.role === 'host'){
+              var hb = document.getElementById('collabHost');
+              if(hb){ hb.click(); return; }
+            } else if(info.role === 'guest'){
+              var el = document.getElementById('collabRemoteOffer');
+              if(el){
+                var offer = (function(){ try{ return sessionStorage.getItem('collab.offer'); }catch(e){} })();
+                if(offer) el.value = offer;
+                var jb = document.getElementById('collabJoin');
+                if(jb){ jb.click(); return; }
+              }
+            }
+            checkModal(attempts - 1);
+          }, 300);
+        };
+        checkModal(15);
+      }, 1500);
     }
+    try{ sessionStorage.removeItem('collab.closed'); }catch(e){}
   }catch(e){}
 })();
 </script>
