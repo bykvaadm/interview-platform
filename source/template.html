@@ -1044,11 +1044,11 @@ function collabHost(){
     sp.send(JSON.stringify({type:'collab:sync',session:SESSION}));
     startSyncTimer();
     updateCollabBtn();
-    try{ sessionStorage.setItem('collab.info',JSON.stringify({role:'host'})); const of = document.getElementById('collabOfferCode')?.value; if(of) sessionStorage.setItem('collab.offer',of); }catch(e){}
+    try{ sessionStorage.setItem('collab.info',JSON.stringify({role:'host'})); const of = document.getElementById('collabOfferCode')?.value; if(of) sessionStorage.setItem('collab.offer',of); const ans = document.getElementById('collabAnswerCode')?.value; if(ans) sessionStorage.setItem('collab.answer',ans); }catch(e){}
     setTimeout(() => { if(document.querySelector('.modal-bg.open')) closeModal(); }, 2000);
   });
   sp.on('data', (raw) => { try{ onCollabData(JSON.parse(raw.toString())); }catch(e){} });
-  sp.on('close', () => { updateCollabBtn(); try{ sessionStorage.removeItem('collab.info'); }catch(e){} });
+  sp.on('close', () => { updateCollabBtn(); try{ sessionStorage.setItem('collab.closed','1'); }catch(e){} });
   sp.on('error', (err) => { console.error(err); toast('Ошибка: ' + (err.message||'соединение')); });
   updateCollabBtn();
 }
@@ -1078,7 +1078,7 @@ function collabJoin(){
     setTimeout(() => { if(document.querySelector('.modal-bg.open')) closeModal(); }, 2000);
   });
   sp.on('data', (raw) => { try{ onCollabData(JSON.parse(raw.toString())); }catch(e){} });
-  sp.on('close', () => { updateCollabBtn(); try{ sessionStorage.removeItem('collab.info'); }catch(e){} });
+  sp.on('close', () => { updateCollabBtn(); try{ sessionStorage.setItem('collab.closed','1'); }catch(e){} });
   sp.on('error', (err) => { console.error(err); toast('Ошибка: ' + (err.message||'соединение')); });
   sp.signal(signalData);
   updateCollabBtn();
@@ -1150,7 +1150,10 @@ function updateCollabBtn(){
         const btn = document.getElementById('collabBtn');
         if(btn) btn.click();
         await new Promise(r => setTimeout(r, 600));
-        if(info.role === 'guest'){
+        if(info.role === 'host'){
+          const hostBtn = document.getElementById('collabHost');
+          if(hostBtn) hostBtn.click();
+        } else if(info.role === 'guest'){
           const offer = sessionStorage.getItem('collab.offer');
           if(offer){
             const el = document.getElementById('collabRemoteOffer');
@@ -1161,6 +1164,7 @@ function updateCollabBtn(){
         }
       }, 800);
     }
+    try{ sessionStorage.removeItem('collab.closed'); }catch(e){}
   }catch(e){}
 })();
 </script>
