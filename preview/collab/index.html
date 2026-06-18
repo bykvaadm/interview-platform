@@ -970,7 +970,14 @@ document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal(); });
 /* ========================= collaboration + chat (WebRTC P2P) ========================= */
 let peer=null, peerConnected=false, isHost=false, applyingRemote=false, _collabStep=null, _lastSignal='', _sendTimer=null;
 let CHAT=[], chatUnread=0;
-const ICE={iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:global.stun.twilio.com:3478'}]};
+const DEFAULT_ICE=[
+  {urls:'stun:stun.l.google.com:19302'},
+  {urls:'stun:global.stun.twilio.com:3478'},
+  {urls:'turn:openrelay.metered.ca:80',username:'openrelayproject',credential:'openrelayproject'},
+  {urls:'turn:openrelay.metered.ca:443?transport=tcp',username:'openrelayproject',credential:'openrelayproject'}
+];
+function getIce(){ let extra=[]; try{ const r=localStorage.getItem('oprosnik.turn'); if(r){ const o=JSON.parse(r); extra=Array.isArray(o)?o:[o]; } }catch(e){}
+  return {iceServers:DEFAULT_ICE.concat(extra.filter(s=>s&&s.urls))}; }
 const hasSP=()=>typeof SimplePeer!=='undefined';
 const b64enc=o=>btoa(unescape(encodeURIComponent(JSON.stringify(o))));
 const b64dec=s=>JSON.parse(decodeURIComponent(escape(atob(s))));
@@ -1006,19 +1013,19 @@ function wirePeer(){
   peer.on('connect',()=>{ peerConnected=true; _collabStep=null; updateCollabBtn(); showChatFab(true); closeModal();
     toast('Соединение установлено'); addChatSystem('Соединение установлено'); if(isHost) collabSend({t:'sync',session:SESSION}); });
   peer.on('data',onCollabData);
-  peer.on('close',()=>endPeer('Соединение закрыто'));
-  peer.on('error',e=>{ console.error('collab',e); endPeer('Ошибка соединения'); });
+  peer.on('close',()=>{ const wc=peerConnected; endPeer(wc?'Соединение закрыто':''); });
+  peer.on('error',e=>{ console.error('collab',e); endPeer('Не удалось соединиться. Частые причины: VPN или блокировщик WebRTC (попробуйте инкогнито / отключите расширения), строгий NAT или разные сети. Можно вписать свой TURN в окне 👥.'); });
 }
-function endPeer(msg){ const wasConn=peerConnected; peerConnected=false; if(peer){ try{peer.destroy();}catch(e){} } peer=null; _collabStep=null; _lastSignal='';
-  updateCollabBtn(); showChatFab(false); if(msg&&(wasConn||msg.indexOf('Ошибка')===0)) toast(msg); }
+function endPeer(msg){ peerConnected=false; if(peer){ try{peer.destroy();}catch(e){} } peer=null; _collabStep=null; _lastSignal='';
+  updateCollabBtn(); showChatFab(false); if(msg) toast(msg); }
 
 function collabHost(){ if(!hasSP()){ toast('Библиотека P2P не загрузилась (нужен интернет)'); return; }
-  endPeer(); isHost=true; _collabStep='host'; peer=new SimplePeer({initiator:true,trickle:false,config:ICE}); wirePeer(); renderCollabModal(); }
+  endPeer(); isHost=true; _collabStep='host'; peer=new SimplePeer({initiator:true,trickle:false,config:getIce()}); wirePeer(); renderCollabModal(); }
 function collabJoinStart(){ _collabStep='join'; renderCollabModal(); }
 function collabJoinAccept(){ if(!hasSP()){ toast('Библиотека P2P не загрузилась'); return; }
   const code=(($('#collabIn')||{}).value||'').trim(); if(!code){ toast('Вставьте код-приглашение'); return; }
   let sig; try{ sig=b64dec(code); }catch(e){ toast('Неверный формат кода'); return; }
-  endPeer(); isHost=false; _collabStep='join-wait'; peer=new SimplePeer({initiator:false,trickle:false,config:ICE}); wirePeer(); renderCollabModal();
+  endPeer(); isHost=false; _collabStep='join-wait'; peer=new SimplePeer({initiator:false,trickle:false,config:getIce()}); wirePeer(); renderCollabModal();
   try{ peer.signal(sig); }catch(e){ toast('Не удалось обработать код'); } }
 function collabAcceptAnswer(){ const code=(($('#collabIn')||{}).value||'').trim(); if(!code){ toast('Вставьте код-ответ'); return; }
   if(!peer){ toast('Сначала создайте сессию'); return; }
@@ -1054,13 +1061,23 @@ function renderCollabModal(){
   } else {
     body=`<p class="hint" style="margin:0 0 10px">Подключите второго интервьюера напрямую (P2P, без сервера): правки опроса и чат синхронизируются в реальном времени. ${hasSP()?'':'<b style="color:var(--red)">Библиотека P2P не загрузилась — нужен интернет.</b>'}</p>
       <div class="row"><button class="btn btn-primary" id="cbHost">🎤 Создать сессию</button><button class="btn" id="cbJoinStart">🔗 Подключиться к сессии</button></div>
-      <details class="help" style="margin-top:12px"><summary>Как это работает</summary><div class="hc" style="font-size:13px">Организатор жмёт «Создать сессию», копирует код-приглашение и шлёт коллеге (мессенджер/почта). Коллега жмёт «Подключиться», вставляет код, генерирует код-ответ и шлёт обратно. Организатор вставляет код-ответ — готово. Соединение P2P и шифруется (DTLS); за строгим NAT может не подняться (нет TURN-сервера).</div></details>`;
+      <details class="help" style="margin-top:12px"><summary>Как это работает</summary><div class="hc" style="font-size:13px">Организатор жмёт «Создать сессию», копирует код-приглашение и шлёт коллеге (мессенджер/почта). Коллега жмёт «Подключиться», вставляет код, генерирует код-ответ и шлёт обратно. Организатор вставляет код-ответ — готово. Соединение P2P, шифруется (DTLS). По умолчанию используется бесплатный STUN/TURN; за строгим NAT или с VPN/блокировщиком может не подняться.</div></details>
+      <details class="help" style="margin-top:8px"><summary>Свой TURN (если не соединяется)</summary><div class="hc" style="font-size:13px">
+        <input class="input" id="turnUrl" placeholder="turn:host:3478"><div class="row" style="margin-top:6px"><input class="input" id="turnUser" placeholder="username"><input class="input" id="turnCred" placeholder="credential"></div>
+        <button class="btn btn-sm" id="turnSave" style="margin-top:8px">Сохранить TURN</button>
+        <div class="hint" style="margin-top:6px">Бесплатный TURN: metered.ca (free tier) или свой coturn. Сохраняется в браузере, применяется при следующем подключении.</div></div></details>`;
   }
   openModal(`<div class="mhead"><h3 style="margin:0">👥 Совместная работа</h3><button class="icon-btn" data-mclose>✕</button></div><div class="mbody">${body}</div>`);
   const on=(id,fn)=>{ const e=document.getElementById(id); if(e) e.onclick=fn; };
   on('cbHost',collabHost); on('cbJoinStart',collabJoinStart); on('cbJoin',collabJoinAccept); on('cbAns',collabAcceptAnswer);
   on('cbDisc',()=>{ endPeer('Отключено'); closeModal(); });
   on('cbCopy',()=>{ const t=document.querySelector('#modal textarea[readonly]'); if(t&&navigator.clipboard){ navigator.clipboard.writeText(t.value).then(()=>toast('Скопировано')); } });
+  const tsBtn=document.getElementById('turnSave');
+  if(tsBtn){ try{ const o=JSON.parse(localStorage.getItem('oprosnik.turn')||'null'); if(o){ const u=document.getElementById('turnUrl'),us=document.getElementById('turnUser'),c=document.getElementById('turnCred'); if(u)u.value=o.urls||''; if(us)us.value=o.username||''; if(c)c.value=o.credential||''; } }catch(e){}
+    tsBtn.onclick=()=>{ const urls=((document.getElementById('turnUrl')||{}).value||'').trim();
+      if(!urls){ try{localStorage.removeItem('oprosnik.turn')}catch(e){} toast('Свой TURN очищен'); return; }
+      const obj={urls,username:((document.getElementById('turnUser')||{}).value||'').trim(),credential:((document.getElementById('turnCred')||{}).value||'').trim()};
+      try{ localStorage.setItem('oprosnik.turn',JSON.stringify(obj)); toast('TURN сохранён — переподключитесь'); }catch(e){ toast('Не удалось сохранить'); } }; }
 }
 function updateCollabBtn(){ const b=$('#collabBtn'); if(b){ b.textContent=peerConnected?'🟢':'👥'; b.title=peerConnected?'Подключено — совместная работа':'Совместная работа'; } }
 
