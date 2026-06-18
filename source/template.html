@@ -936,6 +936,100 @@ $('#importFile').addEventListener('change',e=>{ const f=e.target.files[0]; if(!f
 $('#modalBg').addEventListener('click',e=>{ if(e.target.id==='modalBg'||e.target.closest('[data-mclose]')) closeModal(); });
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal(); });
 
+/* ========================= collaboration (PeerJS) ========================= */
+let peer = null, conn = null, _remoteUpdate = false, _collabId = null;
+
+function openCollabModal(){
+  const connected = conn && conn.open;
+  const idHtml = connected ? `<div style="margin:8px 0;font-size:22px;font-weight:800;text-align:center;font-family:var(--mono)">${esc(peer?._id||'…')}</div>` : '';
+  openModal(`<div class="mhead"><h3 style="margin:0">👥 Совместное редактирование</h3><button class="icon-btn" data-mclose>✕</button></div>
+    <div class="mbody">
+      ${connected
+        ? `<div class="hint" style="color:var(--green);font-weight:600;text-align:center">✓ Подключено</div>
+           <p>Peer ID этой сессии:${idHtml}</p>
+           <p class="hint">Поделитесь этим ID со вторым участником — он введёт его в своей копии приложения.</p>
+           <div style="text-align:center;margin-top:10px"><button class="btn btn-danger" id="collabDisconnect">Отключиться</button></div>`
+        : `<div class="row" style="justify-content:center">
+             <button class="btn btn-primary" id="collabHost">🎤 Создать сессию</button>
+           </div>
+           <div class="sep"></div>
+           <div><label class="fld">Peer ID организатора</label>
+             <div class="row"><input class="input grow" id="collabPeerInput" placeholder="введите ID">
+             <button class="btn" id="collabJoin">Подключиться</button></div></div>`}
+    </div>`);
+  const hostBtn = document.getElementById('collabHost');
+  const joinBtn = document.getElementById('collabJoin');
+  const discBtn = document.getElementById('collabDisconnect');
+  if(hostBtn) hostBtn.onclick = collabHost;
+  if(joinBtn) joinBtn.onclick = collabJoin;
+  if(discBtn) discBtn.onclick = collabDisconnect;
+}
+
+function collabHost(){
+  if(peer) peer.destroy();
+  peer = new Peer();
+  peer.on('open', (id) => {
+    _collabId = id;
+    toast('Сессия создана: ' + id);
+    peer.on('connection', (incoming) => {
+      conn = incoming;
+      conn.on('data', onCollabData);
+      conn.on('close', () => { conn = null; toast('Участник отключился'); updateCollabBtn(); });
+      toast('Участник подключился!');
+      conn.send({type:'collab:sync',session:SESSION});
+      updateCollabBtn();
+    });
+    closeModal();
+    updateCollabBtn();
+  });
+  peer.on('error', (err) => { toast('Ошибка PeerJS: ' + err.type); });
+}
+
+function collabJoin(){
+  const hostId = document.getElementById('collabPeerInput')?.value.trim();
+  if(!hostId){ toast('Введите ID организатора'); return; }
+  if(peer) peer.destroy();
+  peer = new Peer();
+  peer.on('open', () => {
+    conn = peer.connect(hostId, {reliable:true});
+    conn.on('open', () => {
+      toast('Подключено!');
+      conn.on('data', onCollabData);
+      conn.on('close', () => { conn = null; toast('Соединение разорвано'); updateCollabBtn(); });
+      closeModal();
+      updateCollabBtn();
+    });
+  });
+  peer.on('error', (err) => { toast('Ошибка PeerJS: ' + err.type); });
+}
+
+function collabDisconnect(){
+  if(conn) { conn.close(); conn = null; }
+  if(peer) { peer.destroy(); peer = null; }
+  _collabId = null;
+  closeModal();
+  updateCollabBtn();
+  toast('Отключено');
+}
+
+function onCollabData(data){
+  if(!data || !data.type) return;
+  if(data.type === 'collab:sync' && data.session){
+    _remoteUpdate = true;
+    SESSION = clone(data.session);
+    try{ localStorage.setItem(LS.session, JSON.stringify(SESSION)); }catch(e){}
+    if(view === 'interview') renderInterview();
+    _remoteUpdate = false;
+    toast('Данные синхронизированы');
+  }
+}
+
+function updateCollabBtn(){
+  const btn = document.getElementById('collabBtn');
+  if(!btn) return;
+  btn.textContent = (conn && conn.open) ? '🟢' : '👥';
+}
+
 /* ========================= init ========================= */
 (function init(){
   let th='light'; try{ th=localStorage.getItem(LS.theme)||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'); }catch(e){}
@@ -943,6 +1037,10 @@ document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal(); });
   loadData(); loadSession();
   if(!DATA||!DATA.questions){ DATA=defaultData(); }
   updatePills(); setView('prep');
+  try{
+    const savedId = sessionStorage.getItem('oprosnik.collab.id');
+    if(savedId) _collabId = savedId;
+  }catch(e){}
 })();
 </script>
 </body>
