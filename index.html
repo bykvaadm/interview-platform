@@ -210,12 +210,15 @@ details.help .hc b{color:var(--text)}
 kbd{font-family:var(--mono);font-size:12px;background:var(--surface-2);border:1px solid var(--border);border-radius:5px;padding:1px 6px}
 @media (max-width:680px){
   .icard .calc{margin-left:0}
-  .head-inner{gap:8px;flex-wrap:nowrap}
-  .brand{margin-right:auto}
+  /* first row: logo + (truncating) title ... theme + burger; menu wraps to its own row */
+  .head-inner{gap:8px;flex-wrap:wrap;padding:10px 14px}
+  .brand{flex:1 1 0;min-width:0}
+  .brand>div{min-width:0}
+  .brand b{display:block;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .brand span{display:none}
   .nav-toggle{display:grid}
-  nav.tabs{order:5;width:100%;margin-left:0;flex-direction:column;gap:4px;display:none;
-    padding-top:8px;margin-top:6px;border-top:1px solid var(--border)}
+  nav.tabs{order:5;width:100%;margin:6px 0 0;flex-direction:column;gap:4px;display:none;
+    padding-top:8px;border-top:1px solid var(--border)}
   header.nav-open nav.tabs{display:flex}
   nav.tabs .tab{width:100%;justify-content:flex-start;padding:11px 13px;font-size:15px}
   nav.tabs .tab .pill{margin-left:auto}
