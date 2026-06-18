@@ -990,13 +990,29 @@ function renderCollabModal(offerCode){
 
 function collabHost(){
   if(sp && !sp.destroyed) sp.destroy();
-  sp = new SimplePeer({ initiator: true, config: _collabIce, trickle: false });
+  sp = new SimplePeer({ initiator: true, config: _collabIce, trickle: true });
   _collabStep = 'host-offer';
   renderCollabModal('Генерирую приглашение…');
+  let sdpTries = 0;
+  const sdpTimer = setInterval(() => {
+    if(sp && !sp.destroyed && sp._pc && sp._pc.localDescription && sp._pc.localDescription.sdp){
+      clearInterval(sdpTimer);
+      const sdp = { type: 'offer', sdp: sp._pc.localDescription.sdp };
+      const code = btoa(JSON.stringify(sdp));
+      if(document.getElementById('collabSdp')) return;
+      _collabStep = 'host-offer';
+      renderCollabModal(code);
+    }
+    if(++sdpTries > 40){ clearInterval(sdpTimer); }
+  }, 250);
   sp.on('signal', (data) => {
-    const code = btoa(JSON.stringify(data));
-    _collabStep = 'host-offer';
-    renderCollabModal(code);
+    clearInterval(sdpTimer);
+    if(data.sdp){
+      const code = btoa(JSON.stringify(data.type ? {type:data.type,sdp:data.sdp} : data));
+      if(document.getElementById('collabSdp')) return;
+      _collabStep = 'host-offer';
+      renderCollabModal(code);
+    }
   });
   sp.on('connect', () => {
     toast('Подключено!');
