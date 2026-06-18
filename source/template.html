@@ -1043,9 +1043,11 @@ function collabHost(){
     sp.send(JSON.stringify({type:'collab:sync',session:SESSION}));
     startSyncTimer();
     updateCollabBtn();
+    try{ sessionStorage.setItem('collab.info',JSON.stringify({role:'host'})); }catch(e){}
+    setTimeout(() => { if(document.querySelector('.modal-bg.open')) closeModal(); }, 2000);
   });
   sp.on('data', (raw) => { try{ onCollabData(JSON.parse(raw.toString())); }catch(e){} });
-  sp.on('close', () => { updateCollabBtn(); });
+  sp.on('close', () => { updateCollabBtn(); try{ sessionStorage.removeItem('collab.info'); }catch(e){} });
   sp.on('error', (err) => { console.error(err); toast('Ошибка: ' + (err.message||'соединение')); });
   updateCollabBtn();
 }
@@ -1070,9 +1072,11 @@ function collabJoin(){
     sp.send(JSON.stringify({type:'collab:sync',session:SESSION}));
     startSyncTimer();
     updateCollabBtn();
+    try{ sessionStorage.setItem('collab.info',JSON.stringify({role:'guest'})); }catch(e){}
+    setTimeout(() => { if(document.querySelector('.modal-bg.open')) closeModal(); }, 2000);
   });
   sp.on('data', (raw) => { try{ onCollabData(JSON.parse(raw.toString())); }catch(e){} });
-  sp.on('close', () => { updateCollabBtn(); });
+  sp.on('close', () => { updateCollabBtn(); try{ sessionStorage.removeItem('collab.info'); }catch(e){} });
   sp.on('error', (err) => { console.error(err); toast('Ошибка: ' + (err.message||'соединение')); });
   sp.signal(signalData);
   updateCollabBtn();
@@ -1134,6 +1138,16 @@ function updateCollabBtn(){
   try{
     const savedId = sessionStorage.getItem('oprosnik.collab.id');
     if(savedId) _collabId = savedId;
+  }catch(e){}
+  try{
+    const collabInfo = sessionStorage.getItem('collab.info');
+    if(collabInfo){
+      const info = JSON.parse(collabInfo);
+      setTimeout(() => {
+        toast('Переподключение к собеседованию…');
+        openCollabModal();
+      }, 1000);
+    }
   }catch(e){}
 })();
 </script>
