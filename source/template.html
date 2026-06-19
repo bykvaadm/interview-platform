@@ -937,7 +937,7 @@ $('#modalBg').addEventListener('click',e=>{ if(e.target.id==='modalBg'||e.target
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal(); });
 
 /* ========================= collaboration (SimplePeer) ========================= */
-let sp = null, _remoteUpdate = false;
+let sp = null, _remoteUpdate = false, _collabAnswerPending = false, _collabAcceptedAnswer = null;
 const _collabIce = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
 function openCollabModal(){
@@ -1021,6 +1021,8 @@ function startSyncTimer(){
 
 function collabHost(){
   if(sp && !sp.destroyed) sp.destroy();
+  _collabAnswerPending = false;
+  _collabAcceptedAnswer = null;
   toast('Генерирую приглашение…');
   const codeEl = document.getElementById('collabOfferCode');
   if(codeEl) codeEl.value = '⏳ генерация…';
@@ -1090,6 +1092,20 @@ function collabAcceptAnswer(){
   if(!sp || sp.destroyed){ toast('Сначала создайте сессию'); return; }
   let signalData;
   try{ signalData = JSON.parse(atob(code)); }catch(e){ toast('Неверный формат кода'); return; }
+  if(signalData.type !== 'answer' || !signalData.sdp){ toast('Код не содержит SDP-ответ'); return; }
+  const pc = sp._pc;
+  if(_collabAnswerPending || _collabAcceptedAnswer === signalData.sdp || (pc && pc.signalingState === 'stable')){
+    toast('Ответ уже принят');
+    return;
+  }
+  if(pc && pc.signalingState !== 'have-local-offer'){
+    toast('Сессия ещё не готова принять ответ');
+    return;
+  }
+  _collabAnswerPending = true;
+  _collabAcceptedAnswer = signalData.sdp;
+  const acceptBtn = document.getElementById('collabAcceptAnswer');
+  if(acceptBtn) acceptBtn.disabled = true;
   sp.signal(signalData);
   toast('Обрабатываю ответ…');
 }
@@ -1098,6 +1114,8 @@ function collabDisconnect(){
   if(_syncTimer){ clearInterval(_syncTimer); _syncTimer = null; }
   if(sp && !sp.destroyed) sp.destroy();
   sp = null;
+  _collabAnswerPending = false;
+  _collabAcceptedAnswer = null;
   closeModal();
   updateCollabBtn();
   toast('Отключено');

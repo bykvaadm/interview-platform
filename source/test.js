@@ -4,7 +4,7 @@ const INDEX=process.env.INDEX||path.join(__dirname,'..','index.html');
 let html=fs.readFileSync(INDEX,'utf8');
 // expose internals for testing
 html=html.replace('/* ========================= init ========================= */',
-  'window.__api={results:()=>results(),DATA:()=>DATA,SESSION:()=>SESSION,addToSession:(id)=>addToSession(id),loadPreset:(id)=>loadPreset(id),calcItem:(it)=>calcItem(it),setView:(v)=>setView(v),clear:()=>{SESSION={meta:{candidate:"",position:"",interviewer:"",date:"2026-01-01",notes:""},items:[]};}};\n/* init */');
+  'window.__api={results:()=>results(),DATA:()=>DATA,SESSION:()=>SESSION,addToSession:(id)=>addToSession(id),loadPreset:(id)=>loadPreset(id),calcItem:(it)=>calcItem(it),setView:(v)=>setView(v),acceptCollabAnswer:()=>collabAcceptAnswer(),setCollabPeer:(peer)=>{sp=peer;_collabAnswerPending=false;_collabAcceptedAnswer=null;},clear:()=>{SESSION={meta:{candidate:"",position:"",interviewer:"",date:"2026-01-01",notes:""},items:[]};}};\n/* init */');
 
 let fails=0; const ok=(c,m)=>{ if(c){console.log("  ok -",m);} else {console.log("  FAIL -",m);fails++;} };
 const dom=new JSDOM(html,{runScripts:"dangerously",resources:undefined,url:"http://localhost/",pretendToBeVisual:true,
@@ -118,6 +118,25 @@ setTimeout(()=>{
     nt.click();
     w.document.querySelector('.tab[data-view="bank"]').click();
     ok(!w.document.querySelector('header').classList.contains('nav-open'),"selecting a tab auto-closes menu");
+
+    console.log("== collaboration answer deduplication ==");
+    const answer={type:'answer',sdp:'v=0\\r\\ntest-answer'};
+    const answerInput=w.document.createElement('textarea');
+    answerInput.id='collabAnswerCode';
+    answerInput.value=w.btoa(JSON.stringify(answer));
+    const acceptBtn=w.document.createElement('button');
+    acceptBtn.id='collabAcceptAnswer';
+    w.document.body.append(answerInput,acceptBtn);
+    let signalCalls=0;
+    api.setCollabPeer({destroyed:false,_pc:{signalingState:'have-local-offer'},signal(){signalCalls++;}});
+    api.acceptCollabAnswer();
+    api.acceptCollabAnswer();
+    ok(signalCalls===1,"duplicate SDP answer is signaled only once (got "+signalCalls+")");
+    ok(acceptBtn.disabled,"accept button is disabled after first answer");
+    signalCalls=0;
+    api.setCollabPeer({destroyed:false,_pc:{signalingState:'stable'},signal(){signalCalls++;}});
+    api.acceptCollabAnswer();
+    ok(signalCalls===0,"answer is ignored when peer connection is already stable");
 
     console.log("\n"+(fails===0?"ALL TESTS PASSED ✓":fails+" TEST(S) FAILED ✗"));
     process.exit(fails===0?0:1);
