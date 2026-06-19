@@ -159,7 +159,7 @@ setTimeout(()=>{
     api.resetCollab();
     w.document.querySelector('#collabBtn').click();
     ok(w.document.querySelector('#diagCands')!==null && w.document.querySelector('#diagOut')!==null,"diagnostics panel present in collab modal");
-    ok(/^v0\.2\.4/.test(w.document.querySelector('#verBadge').textContent),"version badge shows v0.2.4 ("+w.document.querySelector('#verBadge').textContent+")");
+    ok(/^v0\.2\.5/.test(w.document.querySelector('#verBadge').textContent),"version badge shows v0.2.5 ("+w.document.querySelector('#verBadge').textContent+")");
     ok(w.document.querySelector('#view-prep #btnExportCfg')!==null,"data import/export/reset moved to Подготовка");
     ok(w.document.querySelector('#view-matrix #btnExportCfg')===null,"data block removed from Матрицы");
     api.setView('help');
