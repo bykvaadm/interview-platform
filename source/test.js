@@ -156,6 +156,10 @@ setTimeout(()=>{
     api.simulateConnectedDrop();
     ok(w.document.querySelector('#collabBtn').textContent==='🔴',"collab button shows lost state after drop");
     ok(w.document.querySelector('#cbRe')!==null,"reconnect button shown after drop");
+    ok(/^v0\.2\.0/.test(w.document.querySelector('#verBadge').textContent),"version badge shows v0.2.0 ("+w.document.querySelector('#verBadge').textContent+")");
+    api.setView('help');
+    ok(/История изменений/.test(w.document.querySelector('#view-help').textContent),"changelog section present in help");
+    ok(/0\.1\.0/.test(w.document.querySelector('#view-help').textContent),"changelog lists 0.1.0");
 
     console.log("\n"+(fails===0?"ALL TESTS PASSED ✓":fails+" TEST(S) FAILED ✗"));
     process.exit(fails===0?0:1);

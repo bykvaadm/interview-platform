@@ -49,6 +49,8 @@ header{position:sticky;top:0;z-index:30;background:color-mix(in srgb,var(--surfa
 .logo{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--accent),#9333ea);
   display:grid;place-items:center;color:#fff;font-weight:800;font-size:17px;flex:none;box-shadow:var(--shadow)}
 .brand b{font-size:16px;font-weight:680;white-space:nowrap}
+.ver-badge{font-size:11px;font-weight:600;color:var(--muted);background:var(--surface-2);border:1px solid var(--border);border-radius:20px;padding:1px 7px;cursor:pointer;vertical-align:middle;white-space:nowrap}
+.ver-badge:hover{color:var(--text)}
 .brand span{display:block;font-size:11.5px;color:var(--muted)}
 nav.tabs{display:flex;gap:4px;margin-left:auto;flex-wrap:nowrap;min-width:0;overflow-x:auto;scrollbar-width:none}
 nav.tabs::-webkit-scrollbar{display:none}
@@ -259,7 +261,7 @@ kbd{font-family:var(--mono);font-size:12px;background:var(--surface-2);border:1p
   <div class="head-inner">
     <div class="brand">
       <div class="logo">?</div>
-      <div><b>Опросник для собеседований</b></div>
+      <div><b>Опросник для собеседований</b> <span class="ver-badge" id="verBadge" title="История изменений"></span></div>
     </div>
     <nav class="tabs" id="tabs">
       <button class="tab active" data-view="prep">📋 Подготовка</button>
@@ -411,6 +413,8 @@ kbd{font-family:var(--mono);font-size:12px;background:var(--surface-2);border:1p
 <script>
 "use strict";
 window.PREDEFINED_DATA = /*__PREDEFINED_DATA__*/ null;
+const APP_VERSION = /*__APP_VERSION__*/ "0.0.0";
+const APP_CHANGELOG = /*__APP_CHANGELOG__*/ "";
 
 /* ========================= helpers ========================= */
 const $ = s => document.querySelector(s);
@@ -703,7 +707,17 @@ function renderHelp(){
     ['Грейд','Пороги грейдов считаются <b>по набору оценённых вопросов</b> и матрице ожиданий: для каждого грейда суммируется ожидаемый балл по всем вопросам. Сумма баллов кандидата сравнивается с порогами — определяется ближайший грейд и интервал (нижний/верхний грейд), между которыми находится кандидат. Неоценённые вопросы в расчёт не входят.'],
     ['Сохранение и экспорт','Банк, матрицы и текущая сессия сохраняются в памяти браузера (localStorage) — можно закрыть вкладку и вернуться. Кнопки <b>Excel</b> и <b>PDF</b> выгружают результат. Во вкладке <b>Матрицы</b> есть экспорт/импорт конфигурации в JSON и сброс к исходному набору.'],
   ];
-  $('#helpBlocks').innerHTML=blocks.map(([t,c],i)=>`<details class="help" ${i===0?'open':''}><summary>${t}</summary><div class="hc">${c}</div></details>`).join('');
+  const clog=()=>{ if(!APP_CHANGELOG) return '<div class="hint">нет данных</div>'; let out='',ul=false; const cl=()=>{ if(ul){out+='</ul>';ul=false;} };
+    APP_CHANGELOG.split('\n').forEach(l=>{
+      if(/^##\s*\[/.test(l)){ cl(); out+=`<div style="font-weight:700;margin:12px 0 3px">${esc(l.replace(/^##\s*/,''))}</div>`; }
+      else if(/^###\s+/.test(l)){ cl(); out+=`<div style="font-weight:600;color:var(--muted);margin-top:6px">${esc(l.replace(/^###\s+/,''))}</div>`; }
+      else if(/^#\s+/.test(l)){ }
+      else if(/^\s*-\s+/.test(l)){ if(!ul){ out+='<ul style="margin:3px 0 3px 18px;padding:0">'; ul=true; } out+=`<li>${esc(l.replace(/^\s*-\s+/,''))}</li>`; }
+      else if(l.trim()===''){ cl(); }
+      else { cl(); out+=`<div class="hint">${esc(l)}</div>`; }
+    }); cl(); return out; };
+  $('#helpBlocks').innerHTML=blocks.map(([t,c],i)=>`<details class="help" ${i===0?'open':''}><summary>${t}</summary><div class="hc">${c}</div></details>`).join('')
+    + `<details class="help"><summary>📝 История изменений (v${esc(APP_VERSION)})</summary><div class="hc">${clog()}</div></details>`;
 }
 
 /* ========================= mutations ========================= */
@@ -1146,6 +1160,7 @@ function sendChat(){ const i=$('#chatText'); if(!i) return; const text=i.value.t
 (function init(){
   let th='light'; try{ th=localStorage.getItem(LS.theme)||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'); }catch(e){}
   document.documentElement.setAttribute('data-theme',th); $('#themeBtn').textContent=th==='dark'?'☀️':'🌙';
+  const _vb=$('#verBadge'); if(_vb){ _vb.textContent='v'+APP_VERSION; _vb.onclick=()=>setView('help'); }
   loadData(); loadSession();
   if(!DATA||!DATA.questions){ DATA=defaultData(); }
   updatePills(); setView('prep');

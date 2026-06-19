@@ -20,6 +20,7 @@ except ImportError:
     sys.exit("Нужен PyYAML:  pip install pyyaml   (или: pip install pyyaml --break-system-packages)")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+OUT_DIR = os.environ.get("OUT_DIR") or os.path.dirname(HERE)
 
 def load_yaml(name):
     path = os.path.join(HERE, name)
@@ -106,6 +107,18 @@ data = {
     "presets": presets,
 }
 
+# ---------- версия и changelog (источник правды: CHANGELOG.md) ----------
+import re as _re
+def _read_changelog():
+    for p in (os.path.join(OUT_DIR, "CHANGELOG.md"), os.path.join(HERE, "CHANGELOG.md"), os.path.join(os.path.dirname(HERE), "CHANGELOG.md")):
+        if os.path.exists(p):
+            return open(p, encoding="utf-8").read()
+    return ""
+CHANGELOG = _read_changelog()
+_m = _re.search(r"^##\s*\[([0-9]+\.[0-9]+\.[0-9]+)\]", CHANGELOG, _re.M)
+APP_VERSION = _m.group(1) if _m else "0.0.0"
+print("Version:", APP_VERSION, "| changelog:", "found" if CHANGELOG else "MISSING")
+
 # ---------- проверка математики порогов (как в исходной таблице) ----------
 def threshold(grade, nLow, nMed, nHigh):
     e = EXPECTATIONS[grade]
@@ -127,7 +140,6 @@ for p in presets:
 
 # ---------- запись ----------
 TEMPLATE = os.path.join(HERE, "template.html")
-OUT_DIR = os.environ.get("OUT_DIR") or os.path.dirname(HERE)
 OUT = os.path.join(OUT_DIR, "index.html")
 
 if "--data-only" in sys.argv or not os.path.exists(TEMPLATE):
@@ -141,6 +153,8 @@ with open(TEMPLATE, encoding="utf-8") as f:
 needle = "/*__PREDEFINED_DATA__*/ null"
 assert needle in tpl, "placeholder not found in template"
 tpl = tpl.replace(needle, json.dumps(data, ensure_ascii=False))
+tpl = tpl.replace('/*__APP_VERSION__*/ "0.0.0"', json.dumps(APP_VERSION))
+tpl = tpl.replace('/*__APP_CHANGELOG__*/ ""', json.dumps(CHANGELOG, ensure_ascii=False))
 os.makedirs(OUT_DIR, exist_ok=True)
 with open(OUT, "w", encoding="utf-8") as f:
     f.write(tpl)
