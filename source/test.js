@@ -139,6 +139,12 @@ setTimeout(()=>{
     ok(!w.document.querySelector('#chatPanel').classList.contains('collapsed'),"minimize toggles chat back open");
     w.document.querySelector('#chatClose').click();
     ok(w.document.querySelector('#chatPanel').hidden===true,"close (X) hides chat panel");
+    const sb=w.document.querySelector('#chatSoundBtn');
+    ok(sb!==null,"chat sound toggle present");
+    const beforeIcon=sb.textContent; sb.click();
+    ok(sb.textContent!==beforeIcon,"sound toggle flips icon");
+    sb.click();
+    ok(!/конструктор и оценка грейда/.test(w.document.querySelector('header').textContent),"header subtitle removed");
 
     console.log("\n"+(fails===0?"ALL TESTS PASSED ✓":fails+" TEST(S) FAILED ✗"));
     process.exit(fails===0?0:1);

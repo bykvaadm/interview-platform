@@ -258,7 +258,7 @@ kbd{font-family:var(--mono);font-size:12px;background:var(--surface-2);border:1p
   <div class="head-inner">
     <div class="brand">
       <div class="logo">?</div>
-      <div><b>Опросник для собеседований</b><span>DevOps / SRE · конструктор и оценка грейда</span></div>
+      <div><b>Опросник для собеседований</b></div>
     </div>
     <nav class="tabs" id="tabs">
       <button class="tab active" data-view="prep">📋 Подготовка</button>
@@ -399,7 +399,7 @@ kbd{font-family:var(--mono);font-size:12px;background:var(--surface-2);border:1p
 
 <button id="chatFab" class="chat-fab" hidden title="Чат интервьюеров">💬<span id="chatBadge" class="chat-badge" hidden>0</span></button>
 <div id="chatPanel" class="chat-panel" hidden>
-  <div class="chat-head"><b class="h-title" id="chatTitle" title="Свернуть/развернуть">💬 Чат<span id="chatCount"></span></b><div class="chat-head-btns"><button class="icon-btn" id="chatMin" title="Свернуть">—</button><button class="icon-btn" id="chatClose" title="Закрыть">✕</button></div></div>
+  <div class="chat-head"><b class="h-title" id="chatTitle" title="Свернуть/развернуть">💬 Чат<span id="chatCount"></span></b><div class="chat-head-btns"><button class="icon-btn" id="chatSoundBtn" title="Звук">🔔</button><button class="icon-btn" id="chatMin" title="Свернуть">—</button><button class="icon-btn" id="chatClose" title="Закрыть">✕</button></div></div>
   <div class="chat-log" id="chatLog"></div>
   <div class="chat-input"><input id="chatText" class="input" placeholder="Сообщение… (Enter)" autocomplete="off"><button class="btn btn-primary" id="chatSend" title="Отправить">▶</button></div>
 </div>
@@ -977,7 +977,7 @@ document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal(); });
 
 /* ========================= collaboration + chat (WebRTC P2P) ========================= */
 let peer=null, peerConnected=false, isHost=false, applyingRemote=false, _collabStep=null, _lastSignal='', _sendTimer=null;
-let CHAT=[], chatUnread=0, chatCollapsed=false;
+let CHAT=[], chatUnread=0, chatCollapsed=false, chatSound=true, _actx=null;
 const DEFAULT_ICE=[
   {urls:'stun:stun.l.google.com:19302'},
   {urls:'stun:stun1.l.google.com:19302'},
@@ -1017,7 +1017,7 @@ function onCollabData(raw){ let m; try{ m=JSON.parse(raw.toString()); }catch(e){
 /* --- peer lifecycle --- */
 function wirePeer(){
   peer.on('signal',d=>{ _lastSignal=b64enc(d); if(_collabStep) renderCollabModal(); });
-  peer.on('connect',()=>{ peerConnected=true; _collabStep=null; updateCollabBtn(); showChatFab(true); closeModal();
+  peer.on('connect',()=>{ peerConnected=true; _collabStep=null; audioCtx(); updateCollabBtn(); showChatFab(true); closeModal();
     toast('Соединение установлено'); addChatSystem('Соединение установлено'); if(isHost) collabSend({t:'sync',session:SESSION}); });
   peer.on('data',onCollabData);
   peer.on('close',()=>{ const wc=peerConnected; endPeer(wc?'Соединение закрыто':''); });
@@ -1089,6 +1089,15 @@ function renderCollabModal(){
 function updateCollabBtn(){ const b=$('#collabBtn'); if(b){ b.textContent=peerConnected?'🟢':'👥'; b.title=peerConnected?'Подключено — совместная работа':'Совместная работа'; } }
 
 /* --- chat --- */
+function audioCtx(){ try{ if(!_actx){ const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return null; _actx=new AC(); } if(_actx.state==='suspended') _actx.resume(); }catch(e){ return null; } return _actx; }
+function playPing(){ if(!chatSound) return; const ctx=audioCtx(); if(!ctx) return; try{ const t=ctx.currentTime;
+  const o=ctx.createOscillator(), g=ctx.createGain(); o.type='sine';
+  o.frequency.setValueAtTime(880,t); o.frequency.setValueAtTime(1320,t+0.09);
+  g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.2,t+0.02); g.gain.exponentialRampToValueAtTime(0.0001,t+0.33);
+  o.connect(g); g.connect(ctx.destination); o.start(t); o.stop(t+0.35);
+}catch(e){} }
+function updateSoundBtn(){ const b=$('#chatSoundBtn'); if(b){ b.textContent=chatSound?'🔔':'🔕'; b.title=chatSound?'Звук уведомлений: вкл':'Звук уведомлений: выкл'; } }
+function toggleChatSound(){ chatSound=!chatSound; try{ localStorage.setItem('oprosnik.chatSound',chatSound?'1':'0'); }catch(e){} updateSoundBtn(); if(chatSound) playPing(); }
 function showChatFab(v){ const f=$('#chatFab'); if(f) f.hidden=!v; if(!v) closeChat(); }
 function openChat(){ const p=$('#chatPanel'); if(!p) return; p.hidden=false; setChatCollapsed(false); chatUnread=0; updateChatBadge(); renderChat(); const i=$('#chatText'); if(i) i.focus(); }
 function closeChat(){ const p=$('#chatPanel'); if(p) p.hidden=true; }
@@ -1099,7 +1108,7 @@ function setChatCollapsed(v){ chatCollapsed=v; const p=$('#chatPanel'); if(p) p.
 function toggleChatCollapse(){ setChatCollapsed(!chatCollapsed); }
 function updateChatBadge(){ const b=$('#chatBadge'); if(b){ b.textContent=chatUnread; b.hidden=chatUnread<=0; } const c=$('#chatCount'); if(c){ c.textContent=chatUnread>0?` (${chatUnread})`:''; } }
 function addChat(m,mine){ CHAT.push({name:m.name,text:m.text,ts:m.ts||Date.now(),mine:!!mine}); if(CHAT.length>500) CHAT.shift();
-  const p=$('#chatPanel'); if(!mine&&(!p||p.hidden||chatCollapsed)){ chatUnread++; updateChatBadge(); } renderChat(); }
+  if(!mine){ playPing(); const p=$('#chatPanel'); if(!p||p.hidden||chatCollapsed){ chatUnread++; updateChatBadge(); } } renderChat(); }
 function addChatSystem(text){ CHAT.push({sys:true,text,ts:Date.now()}); renderChat(); }
 function renderChat(){ const log=$('#chatLog'); if(!log) return;
   log.innerHTML=CHAT.map(m=> m.sys
@@ -1125,6 +1134,9 @@ function sendChat(){ const i=$('#chatText'); if(!i) return; const text=i.value.t
   $('#chatTitle').onclick=toggleChatCollapse;
   $('#chatSend').onclick=sendChat;
   $('#chatText').addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); sendChat(); } });
+  try{ chatSound=localStorage.getItem('oprosnik.chatSound')!=='0'; }catch(e){} updateSoundBtn();
+  $('#chatSoundBtn').onclick=toggleChatSound;
+  document.addEventListener('click',()=>audioCtx(),{once:true});
 })();
 </script>
 </body>
