@@ -145,6 +145,11 @@ setTimeout(()=>{
     ok(sb.textContent!==beforeIcon,"sound toggle flips icon");
     sb.click();
     ok(!/конструктор и оценка грейда/.test(w.document.querySelector('header').textContent),"header subtitle removed");
+    api.addChat({name:'Коллега',text:'второе подряд',ts:Date.now()},false);
+    const cmsgs=w.document.querySelectorAll('#chatLog .chat-msg');
+    ok(cmsgs[cmsgs.length-1].classList.contains('grouped'),"consecutive same-author message is grouped");
+    ok(cmsgs[cmsgs.length-1].querySelector('.chat-meta')===null,"grouped message omits repeated sender name");
+    ok(cmsgs[0].querySelector('.chat-meta')!==null,"first message keeps sender name");
 
     console.log("\n"+(fails===0?"ALL TESTS PASSED ✓":fails+" TEST(S) FAILED ✗"));
     process.exit(fails===0?0:1);

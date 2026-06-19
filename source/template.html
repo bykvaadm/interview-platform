@@ -212,6 +212,7 @@ table.tbl tr:hover td{background:var(--surface-2)}
 .chat-head .icon-btn{width:30px;height:30px;font-size:14px}
 .chat-log{flex:1;overflow:auto;padding:12px;display:flex;flex-direction:column;gap:9px}
 .chat-msg{max-width:86%;display:flex;flex-direction:column;gap:2px}
+.chat-msg.grouped{margin-top:-4px}
 .chat-msg.me{align-self:flex-end;align-items:flex-end}
 .chat-msg.them{align-self:flex-start}
 .chat-meta{font-size:11px;color:var(--muted)}
@@ -560,7 +561,7 @@ function renderResults(){
     return `<div class="tick" style="left:${left}%"></div><div class="tlabel" style="left:${left}%">${g}</div><div class="tval" style="left:${left}%">${fmt(r.T[i])}</div>`;
   }).join('');
   const mleft=Math.max(0,Math.min(100,(r.sum/r.maxT)*100));
-  const gtable=`<table class="tbl grade-table"><thead><tr><th>Грейд</th><th>Ожид. баллов</th><th>Кандидат</th><th>Δ</th></tr></thead><tbody>`+
+  const gtable=`<table class="tbl grade-table"><thead><tr><th>Грейд</th><th>Ожид. баллов</th><th>Кандидат</th><th title="Разница между суммой баллов кандидата и порогом грейда">Δ к порогу</th></tr></thead><tbody>`+
     r.grades.map((g,i)=>{ const reached=r.sum>=r.T[i]; const d=r.sum-r.T[i];
       return `<tr><td><b>${g}</b></td><td>${fmt(r.T[i])}</td>
         <td class="${reached?'reached':'notreached'}">${reached?'✓ достигнут':'не достигнут'}</td>
@@ -578,7 +579,8 @@ function renderResults(){
       <div class="fill" style="width:${mleft}%"></div>${ticks}
       <div class="marker" style="left:${mleft}%"><div class="flag">${fmt(r.sum)}</div></div>
     </div></div>
-    ${gtable}`;
+    ${gtable}
+    <div class="hint" style="margin-top:9px"><b>Δ к порогу</b> — разница между суммой баллов кандидата и порогом грейда. «<span style="color:var(--green)">+N</span>» — грейд достигнут, столько баллов в запасе; «<span class="muted">−N</span>» — столько баллов не хватает до этого грейда.</div>`;
 }
 function qualityOptions(sel){
   const opts=['<option value="">'+QUALITY_EMPTY+'</option>'];
@@ -1110,11 +1112,15 @@ function updateChatBadge(){ const b=$('#chatBadge'); if(b){ b.textContent=chatUn
 function addChat(m,mine){ CHAT.push({name:m.name,text:m.text,ts:m.ts||Date.now(),mine:!!mine}); if(CHAT.length>500) CHAT.shift();
   if(!mine){ playPing(); const p=$('#chatPanel'); if(!p||p.hidden||chatCollapsed){ chatUnread++; updateChatBadge(); } } renderChat(); }
 function addChatSystem(text){ CHAT.push({sys:true,text,ts:Date.now()}); renderChat(); }
-function renderChat(){ const log=$('#chatLog'); if(!log) return;
-  log.innerHTML=CHAT.map(m=> m.sys
-    ? `<div class="chat-sys">${esc(m.text)}</div>`
-    : `<div class="chat-msg ${m.mine?'me':'them'}"><div class="chat-meta">${esc(m.name)} · ${new Date(m.ts).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})}</div><div class="chat-bub">${esc(m.text)}</div></div>`
-  ).join(''); log.scrollTop=log.scrollHeight; }
+function renderChat(){ const log=$('#chatLog'); if(!log) return; let html='', prev=null;
+  CHAT.forEach(m=>{
+    if(m.sys){ html+=`<div class="chat-sys">${esc(m.text)}</div>`; prev=null; return; }
+    const grouped=prev&&prev.mine===m.mine&&prev.name===m.name;
+    const meta=grouped?'':`<div class="chat-meta">${esc(m.name)} · ${new Date(m.ts).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})}</div>`;
+    html+=`<div class="chat-msg ${m.mine?'me':'them'}${grouped?' grouped':''}">${meta}<div class="chat-bub">${esc(m.text)}</div></div>`;
+    prev=m;
+  });
+  log.innerHTML=html; log.scrollTop=log.scrollHeight; }
 function sendChat(){ const i=$('#chatText'); if(!i) return; const text=i.value.trim(); if(!text) return;
   if(!peerConnected){ toast('Нет соединения с участником'); return; }
   const ts=Date.now(); collabSend({t:'chat',name:myName(),text,ts}); addChat({name:myName(),text,ts},true); i.value=''; i.focus(); }
