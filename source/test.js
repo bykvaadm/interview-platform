@@ -4,7 +4,7 @@ const INDEX=process.env.INDEX||path.join(__dirname,'..','index.html');
 let html=fs.readFileSync(INDEX,'utf8');
 // expose internals for testing
 html=html.replace('/* ========================= init ========================= */',
-  'window.__api={results:()=>results(),DATA:()=>DATA,SESSION:()=>SESSION,addToSession:(id)=>addToSession(id),loadPreset:(id)=>loadPreset(id),calcItem:(it)=>calcItem(it),setView:(v)=>setView(v),applyRemote:(s)=>applyRemoteSession(s),addChat:(m,mine)=>addChat(m,mine),CHAT:()=>CHAT,clear:()=>{SESSION={meta:{candidate:"",position:"",interviewer:"",date:"2026-01-01",notes:""},items:[]};}};\n/* init */');
+  'window.__api={results:()=>results(),DATA:()=>DATA,SESSION:()=>SESSION,addToSession:(id)=>addToSession(id),loadPreset:(id)=>loadPreset(id),calcItem:(it)=>calcItem(it),setView:(v)=>setView(v),applyRemote:(s)=>applyRemoteSession(s),addChat:(m,mine)=>addChat(m,mine),CHAT:()=>CHAT,simulateConnectedDrop:()=>{peerConnected=true;handleDisconnect();},clear:()=>{SESSION={meta:{candidate:"",position:"",interviewer:"",date:"2026-01-01",notes:""},items:[]};}};\n/* init */');
 
 let fails=0; const ok=(c,m)=>{ if(c){console.log("  ok -",m);} else {console.log("  FAIL -",m);fails++;} };
 const dom=new JSDOM(html,{runScripts:"dangerously",resources:undefined,url:"http://localhost/",pretendToBeVisual:true,
@@ -150,6 +150,12 @@ setTimeout(()=>{
     ok(cmsgs[cmsgs.length-1].classList.contains('grouped'),"consecutive same-author message is grouped");
     ok(cmsgs[cmsgs.length-1].querySelector('.chat-meta')===null,"grouped message omits repeated sender name");
     ok(cmsgs[0].querySelector('.chat-meta')!==null,"first message keeps sender name");
+    w.document.querySelector('#collabBtn').click();
+    ok(w.document.querySelector('#collabMyName')!==null,"own-name field present in collab modal");
+    ok(/Интервьюер\(ы\)/.test(w.document.querySelector('#view-interview').textContent),"interviewer field labelled for two people");
+    api.simulateConnectedDrop();
+    ok(w.document.querySelector('#collabBtn').textContent==='🔴',"collab button shows lost state after drop");
+    ok(w.document.querySelector('#cbRe')!==null,"reconnect button shown after drop");
 
     console.log("\n"+(fails===0?"ALL TESTS PASSED ✓":fails+" TEST(S) FAILED ✗"));
     process.exit(fails===0?0:1);
