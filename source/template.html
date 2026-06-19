@@ -44,13 +44,14 @@ small{color:var(--muted)}
 /* Header */
 header{position:sticky;top:0;z-index:30;background:color-mix(in srgb,var(--surface) 88%,transparent);
   backdrop-filter:saturate(160%) blur(10px);border-bottom:1px solid var(--border)}
-.head-inner{max-width:1140px;margin:0 auto;padding:12px 20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.head-inner{max-width:1140px;margin:0 auto;padding:12px 20px;display:flex;align-items:center;gap:12px;flex-wrap:nowrap}
 .brand{display:flex;align-items:center;gap:11px;min-width:0}
 .logo{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--accent),#9333ea);
   display:grid;place-items:center;color:#fff;font-weight:800;font-size:17px;flex:none;box-shadow:var(--shadow)}
 .brand b{font-size:16px;font-weight:680;white-space:nowrap}
 .brand span{display:block;font-size:11.5px;color:var(--muted)}
-nav.tabs{display:flex;gap:4px;margin-left:auto;flex-wrap:wrap}
+nav.tabs{display:flex;gap:4px;margin-left:auto;flex-wrap:nowrap;min-width:0;overflow-x:auto;scrollbar-width:none}
+nav.tabs::-webkit-scrollbar{display:none}
 .tab{appearance:none;border:0;background:transparent;color:var(--muted);font:inherit;font-weight:550;
   padding:8px 13px;border-radius:9px;cursor:pointer;display:flex;align-items:center;gap:7px;font-size:14px}
 .tab:hover{background:var(--surface-2);color:var(--text)}
@@ -199,6 +200,11 @@ table.tbl tr:hover td{background:var(--surface-2)}
 .chat-fab{position:fixed;right:20px;bottom:20px;z-index:70;width:52px;height:52px;border-radius:50%;border:0;
   background:var(--accent);color:var(--accent-text);font-size:22px;cursor:pointer;box-shadow:var(--shadow-lg);display:grid;place-items:center}
 .chat-fab:hover{filter:brightness(1.07)}
+.chat-fab[hidden],.chat-panel[hidden]{display:none}
+.chat-panel.collapsed{height:auto}
+.chat-panel.collapsed .chat-log,.chat-panel.collapsed .chat-input{display:none}
+.chat-head .h-title{cursor:pointer;user-select:none}
+.chat-head-btns{display:flex;gap:4px;flex:none}
 .chat-badge{position:absolute;top:-3px;right:-3px;background:var(--red);color:#fff;font-size:11px;font-weight:700;min-width:18px;height:18px;border-radius:10px;display:grid;place-items:center;padding:0 4px}
 .chat-panel{position:fixed;right:20px;bottom:20px;z-index:71;width:340px;max-width:calc(100vw - 32px);height:460px;max-height:calc(100vh - 96px);
   background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow-lg);display:flex;flex-direction:column;overflow:hidden}
@@ -393,7 +399,7 @@ kbd{font-family:var(--mono);font-size:12px;background:var(--surface-2);border:1p
 
 <button id="chatFab" class="chat-fab" hidden title="Чат интервьюеров">💬<span id="chatBadge" class="chat-badge" hidden>0</span></button>
 <div id="chatPanel" class="chat-panel" hidden>
-  <div class="chat-head"><b>💬 Чат интервьюеров</b><button class="icon-btn" id="chatClose" title="Свернуть">✕</button></div>
+  <div class="chat-head"><b class="h-title" id="chatTitle" title="Свернуть/развернуть">💬 Чат<span id="chatCount"></span></b><div class="chat-head-btns"><button class="icon-btn" id="chatMin" title="Свернуть">—</button><button class="icon-btn" id="chatClose" title="Закрыть">✕</button></div></div>
   <div class="chat-log" id="chatLog"></div>
   <div class="chat-input"><input id="chatText" class="input" placeholder="Сообщение… (Enter)" autocomplete="off"><button class="btn btn-primary" id="chatSend" title="Отправить">▶</button></div>
 </div>
@@ -971,7 +977,7 @@ document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal(); });
 
 /* ========================= collaboration + chat (WebRTC P2P) ========================= */
 let peer=null, peerConnected=false, isHost=false, applyingRemote=false, _collabStep=null, _lastSignal='', _sendTimer=null;
-let CHAT=[], chatUnread=0;
+let CHAT=[], chatUnread=0, chatCollapsed=false;
 const DEFAULT_ICE=[
   {urls:'stun:stun.l.google.com:19302'},
   {urls:'stun:stun1.l.google.com:19302'},
@@ -1083,11 +1089,17 @@ function renderCollabModal(){
 function updateCollabBtn(){ const b=$('#collabBtn'); if(b){ b.textContent=peerConnected?'🟢':'👥'; b.title=peerConnected?'Подключено — совместная работа':'Совместная работа'; } }
 
 /* --- chat --- */
-function showChatFab(v){ const f=$('#chatFab'); if(f) f.hidden=!v; if(!v){ const p=$('#chatPanel'); if(p) p.hidden=true; chatUnread=0; updateChatBadge(); } }
-function toggleChat(){ const p=$('#chatPanel'); if(!p) return; p.hidden=!p.hidden; if(!p.hidden){ chatUnread=0; updateChatBadge(); renderChat(); const i=$('#chatText'); if(i) i.focus(); } }
-function updateChatBadge(){ const b=$('#chatBadge'); if(b){ b.textContent=chatUnread; b.hidden=chatUnread<=0; } }
+function showChatFab(v){ const f=$('#chatFab'); if(f) f.hidden=!v; if(!v) closeChat(); }
+function openChat(){ const p=$('#chatPanel'); if(!p) return; p.hidden=false; setChatCollapsed(false); chatUnread=0; updateChatBadge(); renderChat(); const i=$('#chatText'); if(i) i.focus(); }
+function closeChat(){ const p=$('#chatPanel'); if(p) p.hidden=true; }
+function toggleChat(){ const p=$('#chatPanel'); if(!p) return; if(p.hidden) openChat(); else closeChat(); }
+function setChatCollapsed(v){ chatCollapsed=v; const p=$('#chatPanel'); if(p) p.classList.toggle('collapsed',v);
+  const b=$('#chatMin'); if(b){ b.textContent=v?'▢':'—'; b.title=v?'Развернуть':'Свернуть'; }
+  if(!v){ chatUnread=0; updateChatBadge(); renderChat(); } }
+function toggleChatCollapse(){ setChatCollapsed(!chatCollapsed); }
+function updateChatBadge(){ const b=$('#chatBadge'); if(b){ b.textContent=chatUnread; b.hidden=chatUnread<=0; } const c=$('#chatCount'); if(c){ c.textContent=chatUnread>0?` (${chatUnread})`:''; } }
 function addChat(m,mine){ CHAT.push({name:m.name,text:m.text,ts:m.ts||Date.now(),mine:!!mine}); if(CHAT.length>500) CHAT.shift();
-  const p=$('#chatPanel'); if(!mine&&(!p||p.hidden)){ chatUnread++; updateChatBadge(); } renderChat(); }
+  const p=$('#chatPanel'); if(!mine&&(!p||p.hidden||chatCollapsed)){ chatUnread++; updateChatBadge(); } renderChat(); }
 function addChatSystem(text){ CHAT.push({sys:true,text,ts:Date.now()}); renderChat(); }
 function renderChat(){ const log=$('#chatLog'); if(!log) return;
   log.innerHTML=CHAT.map(m=> m.sys
@@ -1108,7 +1120,9 @@ function sendChat(){ const i=$('#chatText'); if(!i) return; const text=i.value.t
   updateCollabBtn(); showChatFab(false);
   $('#collabBtn').onclick=openCollabModal;
   $('#chatFab').onclick=toggleChat;
-  $('#chatClose').onclick=()=>{ const p=$('#chatPanel'); if(p) p.hidden=true; };
+  $('#chatClose').onclick=closeChat;
+  $('#chatMin').onclick=toggleChatCollapse;
+  $('#chatTitle').onclick=toggleChatCollapse;
   $('#chatSend').onclick=sendChat;
   $('#chatText').addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); sendChat(); } });
 })();

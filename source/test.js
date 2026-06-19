@@ -131,6 +131,14 @@ setTimeout(()=>{
     const n0=api.CHAT().length; api.addChat({name:'Коллега',text:'привет',ts:Date.now()},false);
     ok(api.CHAT().length===n0+1,"incoming chat message stored");
     ok(w.document.querySelector('#chatLog .chat-msg')!==null,"chat message rendered in log");
+    const fab=w.document.querySelector('#chatFab'); fab.click();
+    ok(w.document.querySelector('#chatPanel').hidden===false,"chat opens via fab");
+    w.document.querySelector('#chatMin').click();
+    ok(w.document.querySelector('#chatPanel').classList.contains('collapsed'),"minimize collapses chat panel");
+    w.document.querySelector('#chatMin').click();
+    ok(!w.document.querySelector('#chatPanel').classList.contains('collapsed'),"minimize toggles chat back open");
+    w.document.querySelector('#chatClose').click();
+    ok(w.document.querySelector('#chatPanel').hidden===true,"close (X) hides chat panel");
 
     console.log("\n"+(fails===0?"ALL TESTS PASSED ✓":fails+" TEST(S) FAILED ✗"));
     process.exit(fails===0?0:1);
