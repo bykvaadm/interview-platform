@@ -320,7 +320,7 @@ kbd{font-family:var(--mono);font-size:12px;background:var(--surface-2);border:1p
       <div class="row">
         <div class="grow" style="min-width:180px"><label class="fld">Кандидат</label><input class="input" id="m_candidate" placeholder="ФИО кандидата"></div>
         <div style="min-width:160px"><label class="fld">Целевой грейд</label><select class="select" id="m_position"></select></div>
-        <div class="grow" style="min-width:180px"><label class="fld">Интервьюер</label><input class="input" id="m_interviewer" placeholder="кто проводит"></div>
+        <div class="grow" style="min-width:180px"><label class="fld">Интервьюер(ы)</label><input class="input" id="m_interviewer" placeholder="кто проводит (можно двоих)"></div>
         <div style="min-width:140px"><label class="fld">Дата</label><input class="input" id="m_date" type="date"></div>
       </div>
       <div><label class="fld">Комментарий / итоговое впечатление</label><textarea id="m_notes" placeholder="Свободные заметки по кандидату…"></textarea></div>
@@ -978,8 +978,13 @@ $('#modalBg').addEventListener('click',e=>{ if(e.target.id==='modalBg'||e.target
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal(); });
 
 /* ========================= collaboration + chat (WebRTC P2P) ========================= */
-let peer=null, peerConnected=false, isHost=false, applyingRemote=false, _collabStep=null, _lastSignal='', _sendTimer=null;
-let CHAT=[], chatUnread=0, chatCollapsed=false, chatSound=true, _actx=null;
+let peer=null, peerConnected=false, peerLost=false, isHost=false, lastRole=null, applyingRemote=false, _collabStep=null, _lastSignal='', _sendTimer=null, _hbTimer=null, _lastRx=0;
+function startKeepAlive(){ _lastRx=Date.now(); stopKeepAlive(); _hbTimer=setInterval(()=>{ collabSend({t:'ping'}); if(peerConnected && Date.now()-_lastRx>20000) handleDisconnect(); },7000); }
+function stopKeepAlive(){ if(_hbTimer){ clearInterval(_hbTimer); _hbTimer=null; } }
+function handleDisconnect(){ const wc=peerConnected; stopKeepAlive(); peerConnected=false; if(peer){ try{peer.destroy();}catch(e){} } peer=null; _collabStep=null; _lastSignal='';
+  if(wc){ peerLost=true; updateCollabBtn(); showChatFab(CHAT.length>0); addChatSystem('Соединение потеряно'); toast('Соединение потеряно — переподключитесь (кнопка 👥)'); if(document.visibilityState!=='hidden') openCollabModal(); }
+  else updateCollabBtn(); }
+let CHAT=[], chatUnread=0, chatCollapsed=false, chatSound=true, _actx=null, myDisplayName='', remoteName='';
 const DEFAULT_ICE=[
   {urls:'stun:stun.l.google.com:19302'},
   {urls:'stun:stun1.l.google.com:19302'},
@@ -990,7 +995,7 @@ function getIce(){ let extra=[]; try{ const r=localStorage.getItem('oprosnik.tur
 const hasSP=()=>typeof SimplePeer!=='undefined';
 const b64enc=o=>btoa(unescape(encodeURIComponent(JSON.stringify(o))));
 const b64dec=s=>JSON.parse(decodeURIComponent(escape(atob(s))));
-function myName(){ return (SESSION.meta.interviewer||'').trim() || (isHost?'Организатор':'Участник'); }
+function myName(){ return (myDisplayName||'').trim() || (isHost?'Организатор':'Участник'); }
 
 /* --- session sync (two-way, debounced, last-writer-wins) --- */
 function collabSend(obj){ if(peer&&peerConnected){ try{ peer.send(JSON.stringify(obj)); }catch(e){} } }
@@ -1010,8 +1015,11 @@ function renderInterviewKeepFocus(){
 }
 
 /* --- data channel router --- */
-function onCollabData(raw){ let m; try{ m=JSON.parse(raw.toString()); }catch(e){ return; }
+function onCollabData(raw){ _lastRx=Date.now(); let m; try{ m=JSON.parse(raw.toString()); }catch(e){ return; }
   if(!m||!m.t) return;
+  if(m.t==='ping'||m.t==='pong') return;
+  if(m.t==='hello'){ remoteName=(m.name||'').trim(); if(remoteName) addChatSystem(remoteName+' на связи');
+    if(isHost && !((SESSION.meta.interviewer||'').trim())){ SESSION.meta.interviewer=[myName(),remoteName].filter(Boolean).sort().join(', '); saveSession(); if(view==='interview') bindMeta(); } return; }
   if(m.t==='sync'&&m.session){ applyRemoteSession(m.session); }
   else if(m.t==='chat'){ addChat({name:m.name,text:m.text,ts:m.ts},false); }
 }
@@ -1019,22 +1027,23 @@ function onCollabData(raw){ let m; try{ m=JSON.parse(raw.toString()); }catch(e){
 /* --- peer lifecycle --- */
 function wirePeer(){
   peer.on('signal',d=>{ _lastSignal=b64enc(d); if(_collabStep) renderCollabModal(); });
-  peer.on('connect',()=>{ peerConnected=true; _collabStep=null; audioCtx(); updateCollabBtn(); showChatFab(true); closeModal();
-    toast('Соединение установлено'); addChatSystem('Соединение установлено'); if(isHost) collabSend({t:'sync',session:SESSION}); });
+  peer.on('connect',()=>{ peerConnected=true; peerLost=false; _collabStep=null; audioCtx(); startKeepAlive(); updateCollabBtn(); showChatFab(true); closeModal();
+    toast('Соединение установлено'); addChatSystem('Соединение установлено'); collabSend({t:'hello',name:myName()}); if(isHost) collabSend({t:'sync',session:SESSION}); });
   peer.on('data',onCollabData);
-  peer.on('close',()=>{ const wc=peerConnected; endPeer(wc?'Соединение закрыто':''); });
-  peer.on('error',e=>{ console.error('collab',e); endPeer('Не удалось соединиться. Частые причины: VPN или блокировщик WebRTC (попробуйте инкогнито / отключите расширения), строгий NAT или разные сети. Можно вписать свой TURN в окне 👥.'); });
+  peer.on('close',()=>{ if(peerConnected) handleDisconnect(); else endPeer(''); });
+  peer.on('error',e=>{ console.error('collab',e); if(peerConnected) handleDisconnect();
+    else endPeer('Не удалось соединиться. Частые причины: VPN или блокировщик WebRTC (инкогнито / отключите расширения), строгий NAT или разные сети. Можно вписать свой TURN в окне 👥.'); });
 }
-function endPeer(msg){ peerConnected=false; if(peer){ try{peer.destroy();}catch(e){} } peer=null; _collabStep=null; _lastSignal='';
-  updateCollabBtn(); showChatFab(false); if(msg) toast(msg); }
+function endPeer(msg){ stopKeepAlive(); peerConnected=false; peerLost=false; if(peer){ try{peer.destroy();}catch(e){} } peer=null; _collabStep=null; _lastSignal='';
+  updateCollabBtn(); showChatFab(CHAT.length>0); if(msg) toast(msg); }
 
 function collabHost(){ if(!hasSP()){ toast('Библиотека P2P не загрузилась (нужен интернет)'); return; }
-  endPeer(); isHost=true; _collabStep='host'; peer=new SimplePeer({initiator:true,trickle:false,config:getIce()}); wirePeer(); renderCollabModal(); }
-function collabJoinStart(){ _collabStep='join'; renderCollabModal(); }
+  endPeer(); isHost=true; lastRole='host'; _collabStep='host'; peer=new SimplePeer({initiator:true,trickle:false,config:getIce()}); wirePeer(); renderCollabModal(); }
+function collabJoinStart(){ lastRole='guest'; _collabStep='join'; renderCollabModal(); }
 function collabJoinAccept(){ if(!hasSP()){ toast('Библиотека P2P не загрузилась'); return; }
   const code=(($('#collabIn')||{}).value||'').trim(); if(!code){ toast('Вставьте код-приглашение'); return; }
   let sig; try{ sig=b64dec(code); }catch(e){ toast('Неверный формат кода'); return; }
-  endPeer(); isHost=false; _collabStep='join-wait'; peer=new SimplePeer({initiator:false,trickle:false,config:getIce()}); wirePeer(); renderCollabModal();
+  endPeer(); isHost=false; lastRole='guest'; _collabStep='join-wait'; peer=new SimplePeer({initiator:false,trickle:false,config:getIce()}); wirePeer(); renderCollabModal();
   try{ peer.signal(sig); }catch(e){ toast('Не удалось обработать код'); } }
 function collabAcceptAnswer(){ const code=(($('#collabIn')||{}).value||'').trim(); if(!code){ toast('Вставьте код-ответ'); return; }
   if(!peer){ toast('Сначала создайте сессию'); return; }
@@ -1045,7 +1054,11 @@ function collabAcceptAnswer(){ const code=(($('#collabIn')||{}).value||'').trim(
 function openCollabModal(){ renderCollabModal(); }
 function renderCollabModal(){
   let body;
-  if(peerConnected){
+  if(peerLost && !peerConnected){
+    body=`<div class="hint" style="color:var(--red);font-weight:600">⚠ Соединение потеряно</div>
+      <p class="hint">Данные опроса и чат сохранены. Переподключитесь, чтобы продолжить вместе.</p>
+      <div class="row" style="margin-top:8px"><button class="btn btn-primary" id="cbRe">${lastRole==='guest'?'🔗 Подключиться заново':'🎤 Создать сессию заново'}</button><button class="btn" id="cbResetRole">Другой режим</button></div>`;
+  } else if(peerConnected){
     body=`<div class="hint" style="color:var(--green);font-weight:600">✓ Подключено — правки опроса и чат синхронизируются в реальном времени.</div>
       <div style="margin-top:12px"><button class="btn btn-danger" id="cbDisc" style="width:100%">Отключиться</button></div>`;
   } else if(_collabStep==='host'){
@@ -1076,10 +1089,14 @@ function renderCollabModal(){
         <button class="btn btn-sm" id="turnSave" style="margin-top:8px">Сохранить TURN</button>
         <div class="hint" style="margin-top:6px">Бесплатный TURN: metered.ca (free tier) или свой coturn. Сохраняется в браузере, применяется при следующем подключении.</div></div></details>`;
   }
-  openModal(`<div class="mhead"><h3 style="margin:0">👥 Совместная работа</h3><button class="icon-btn" data-mclose>✕</button></div><div class="mbody">${body}</div>`);
+  const nameField=`<div style="margin-bottom:12px"><label class="fld">Ваше имя (подпись в чате)</label><input class="input" id="collabMyName" placeholder="как вас зовут" value="${esc(myDisplayName)}"></div>`;
+  openModal(`<div class="mhead"><h3 style="margin:0">👥 Совместная работа</h3><button class="icon-btn" data-mclose>✕</button></div><div class="mbody">${nameField}${body}</div>`);
   const on=(id,fn)=>{ const e=document.getElementById(id); if(e) e.onclick=fn; };
+  const nm=document.getElementById('collabMyName'); if(nm) nm.oninput=()=>{ myDisplayName=nm.value; try{localStorage.setItem('oprosnik.myname',myDisplayName);}catch(e){} };
   on('cbHost',collabHost); on('cbJoinStart',collabJoinStart); on('cbJoin',collabJoinAccept); on('cbAns',collabAcceptAnswer);
   on('cbDisc',()=>{ endPeer('Отключено'); closeModal(); });
+  on('cbRe',()=>{ peerLost=false; if(lastRole==='guest') collabJoinStart(); else collabHost(); });
+  on('cbResetRole',()=>{ peerLost=false; renderCollabModal(); });
   on('cbCopy',()=>{ const t=document.querySelector('#modal textarea[readonly]'); if(t&&navigator.clipboard){ navigator.clipboard.writeText(t.value).then(()=>toast('Скопировано')); } });
   const tsBtn=document.getElementById('turnSave');
   if(tsBtn){ try{ const o=JSON.parse(localStorage.getItem('oprosnik.turn')||'null'); if(o){ const u=document.getElementById('turnUrl'),us=document.getElementById('turnUser'),c=document.getElementById('turnCred'); if(u)u.value=o.urls||''; if(us)us.value=o.username||''; if(c)c.value=o.credential||''; } }catch(e){}
@@ -1088,7 +1105,7 @@ function renderCollabModal(){
       const obj={urls,username:((document.getElementById('turnUser')||{}).value||'').trim(),credential:((document.getElementById('turnCred')||{}).value||'').trim()};
       try{ localStorage.setItem('oprosnik.turn',JSON.stringify(obj)); toast('TURN сохранён — переподключитесь'); }catch(e){ toast('Не удалось сохранить'); } }; }
 }
-function updateCollabBtn(){ const b=$('#collabBtn'); if(b){ b.textContent=peerConnected?'🟢':'👥'; b.title=peerConnected?'Подключено — совместная работа':'Совместная работа'; } }
+function updateCollabBtn(){ const b=$('#collabBtn'); if(b){ b.textContent=peerConnected?'🟢':(peerLost?'🔴':'👥'); b.title=peerConnected?'Подключено — совместная работа':(peerLost?'Соединение потеряно — переподключиться':'Совместная работа'); } }
 
 /* --- chat --- */
 function audioCtx(){ try{ if(!_actx){ const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return null; _actx=new AC(); } if(_actx.state==='suspended') _actx.resume(); }catch(e){ return null; } return _actx; }
@@ -1140,7 +1157,7 @@ function sendChat(){ const i=$('#chatText'); if(!i) return; const text=i.value.t
   $('#chatTitle').onclick=toggleChatCollapse;
   $('#chatSend').onclick=sendChat;
   $('#chatText').addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); sendChat(); } });
-  try{ chatSound=localStorage.getItem('oprosnik.chatSound')!=='0'; }catch(e){} updateSoundBtn();
+  try{ chatSound=localStorage.getItem('oprosnik.chatSound')!=='0'; myDisplayName=localStorage.getItem('oprosnik.myname')||''; }catch(e){} updateSoundBtn();
   $('#chatSoundBtn').onclick=toggleChatSound;
   document.addEventListener('click',()=>audioCtx(),{once:true});
 })();
