@@ -1003,8 +1003,7 @@ function handleDisconnect(){ const wc=peerConnected; stopKeepAlive(); peerConnec
 let CHAT=[], chatUnread=0, chatCollapsed=false, chatSound=true, _actx=null, myDisplayName='', remoteName='';
 const DEFAULT_ICE=[
   {urls:'stun:stun.l.google.com:19302'},
-  {urls:'stun:stun1.l.google.com:19302'},
-  {urls:'stun:global.stun.twilio.com:3478'}
+  {urls:'stun:stun1.l.google.com:19302'}
 ];
 function getIce(){ let extra=[]; try{ const r=localStorage.getItem('oprosnik.turn'); if(r){ const o=JSON.parse(r); extra=Array.isArray(o)?o:[o]; } }catch(e){}
   return {iceServers:DEFAULT_ICE.concat(extra.filter(s=>s&&s.urls))}; }
@@ -1046,6 +1045,7 @@ function wirePeer(){
   peer.on('connect',()=>{ peerConnected=true; peerLost=false; _collabStep=null; audioCtx(); startKeepAlive(); updateCollabBtn(); showChatFab(true); closeModal();
     toast('Соединение установлено'); addChatSystem('Соединение установлено'); collabSend({t:'hello',name:myName()}); if(isHost) collabSend({t:'sync',session:SESSION}); });
   peer.on('data',onCollabData);
+  try{ if(peer._pc) peer._pc.addEventListener('iceconnectionstatechange',()=>{ diagPrint('ICE: '+(peer._pc&&peer._pc.iceConnectionState)+'\n'); }); }catch(e){}
   peer.on('close',()=>{ if(peerConnected) handleDisconnect(); else endPeer(''); });
   peer.on('error',e=>{ console.error('collab',e);
     if(e && (/stable|wrong state|invalidstate|set_remote/i.test(String(e.code||'')+' '+String(e.message||'')))){ toast('Этот код уже применён — дождитесь подключения.'); return; }
@@ -1109,7 +1109,12 @@ function renderCollabModal(){
       <details class="help" style="margin-top:8px"><summary>Свой TURN (если не соединяется)</summary><div class="hc" style="font-size:13px">
         <input class="input" id="turnUrl" placeholder="turn:host:3478"><div class="row" style="margin-top:6px"><input class="input" id="turnUser" placeholder="username"><input class="input" id="turnCred" placeholder="credential"></div>
         <button class="btn btn-sm" id="turnSave" style="margin-top:8px">Сохранить TURN</button>
-        <div class="hint" style="margin-top:6px">Бесплатный TURN: metered.ca (free tier) или свой coturn. Сохраняется в браузере, применяется при следующем подключении.</div></div></details>`;
+        <div class="hint" style="margin-top:6px">Бесплатный TURN: metered.ca (free tier) или свой coturn. Сохраняется в браузере, применяется при следующем подключении.</div></div></details>
+      <details class="help" style="margin-top:8px"><summary>🔧 Диагностика соединения</summary><div class="hc" style="font-size:13px">
+        <p class="hint" style="margin:0 0 6px">Запустите на <b>обоих</b> ПК и сравните. Главное — есть ли <b>host</b>-кандидат с реальным IP вашей VPN (а не <code>*.local</code>), и достижимы ли эти IP друг для друга.</p>
+        <div class="row"><button class="btn btn-sm" id="diagCands">Проверить мои ICE-кандидаты</button><button class="btn btn-sm" id="diagReveal" title="Chrome раскроет реальный локальный IP">🎤 Раскрыть реальный IP</button></div>
+        <pre id="diagOut" style="white-space:pre-wrap;word-break:break-all;font-family:var(--mono);font-size:11px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:8px;margin-top:8px;max-height:220px;overflow:auto"></pre>
+      </div></details>`;
   }
   const nameField=`<div style="margin-bottom:12px"><label class="fld">Ваше имя (подпись в чате)</label><input class="input" id="collabMyName" placeholder="как вас зовут" value="${esc(myDisplayName)}"></div>`;
   openModal(`<div class="mhead"><h3 style="margin:0">👥 Совместная работа</h3><button class="icon-btn" data-mclose>✕</button></div><div class="mbody">${nameField}${body}</div>`);
@@ -1120,6 +1125,8 @@ function renderCollabModal(){
   on('cbRe',()=>{ peerLost=false; if(lastRole==='guest') collabJoinStart(); else collabHost(); });
   on('cbResetRole',()=>{ peerLost=false; renderCollabModal(); });
   on('cbCopy',()=>{ const t=document.querySelector('#modal textarea[readonly]'); if(t&&navigator.clipboard){ navigator.clipboard.writeText(t.value).then(()=>toast('Скопировано')); } });
+  on('diagCands',diagCandidates); on('diagReveal',diagReveal);
+  { const dout=document.getElementById('diagOut'); if(dout && diagLog) dout.textContent=diagLog; }
   const tsBtn=document.getElementById('turnSave');
   if(tsBtn){ try{ const o=JSON.parse(localStorage.getItem('oprosnik.turn')||'null'); if(o){ const u=document.getElementById('turnUrl'),us=document.getElementById('turnUser'),c=document.getElementById('turnCred'); if(u)u.value=o.urls||''; if(us)us.value=o.username||''; if(c)c.value=o.credential||''; } }catch(e){}
     tsBtn.onclick=()=>{ const urls=((document.getElementById('turnUrl')||{}).value||'').trim();
@@ -1128,6 +1135,34 @@ function renderCollabModal(){
       try{ localStorage.setItem('oprosnik.turn',JSON.stringify(obj)); toast('TURN сохранён — переподключитесь'); }catch(e){ toast('Не удалось сохранить'); } }; }
 }
 function updateCollabBtn(){ const b=$('#collabBtn'); if(b){ b.textContent=peerConnected?'🟢':(peerLost?'🔴':'👥'); b.title=peerConnected?'Подключено — совместная работа':(peerLost?'Соединение потеряно — переподключиться':'Совместная работа'); } }
+
+/* --- diagnostics --- */
+let diagLog='';
+function diagPrint(s){ diagLog+=s; const el=document.getElementById('diagOut'); if(el){ el.textContent=diagLog; el.scrollTop=el.scrollHeight; } }
+function diagCandidates(){
+  if(typeof RTCPeerConnection==='undefined'){ diagLog='WebRTC недоступен в этом браузере.\n'; diagPrint(''); return; }
+  diagLog='Собираю ICE-кандидаты…\n'; diagPrint('');
+  let pc; try{ pc=new RTCPeerConnection(getIce()); }catch(e){ diagPrint('Ошибка RTCPeerConnection: '+e.message+'\n'); return; }
+  let host=0,mdns=0,srflx=0,relay=0,done=false;
+  const finish=()=>{ if(done) return; done=true;
+    diagPrint(`\n— Итог: host ${host} (из них mDNS *.local: ${mdns}) · srflx/STUN ${srflx} · relay/TURN ${relay}\n`);
+    if(host && mdns<host) diagPrint('✓ Есть host-кандидат с реальным IP — прямой P2P (в т.ч. по VPN) возможен. Сравните IP с другим ПК: они должны быть взаимно достижимы.\n');
+    if(host && mdns===host) diagPrint('⚠ Все host-кандидаты скрыты как *.local (mDNS). Между разными ПК через VPN они обычно не резолвятся → прямого пути нет. Решения: нажмите «🎤 Раскрыть реальный IP», либо отключите chrome://flags/#enable-webrtc-hide-local-ips-with-mdns, либо поднимите свой TURN.\n');
+    if(!srflx) diagPrint('• srflx (через STUN) нет — для P2P внутри VPN это и не нужно.\n');
+    if(relay) diagPrint('✓ Есть relay (TURN рабочий).\n');
+    try{ pc.close(); }catch(e){}
+  };
+  pc.onicecandidate=e=>{ if(e.candidate){ const c=e.candidate.candidate||''; const p=c.split(' ');
+      const typ=(c.match(/ typ (\S+)/)||[])[1]||'?'; const addr=p[4]||'', port=p[5]||'', proto=(p[2]||'').toLowerCase();
+      if(typ==='host'){ host++; if(/\.local$/i.test(addr)) mdns++; } else if(typ==='srflx') srflx++; else if(typ==='relay') relay++;
+      diagPrint(`${typ}\t${proto}\t${addr}:${port}\n`);
+    } else finish(); };
+  pc.onicegatheringstatechange=()=>{ if(pc.iceGatheringState==='complete') finish(); };
+  setTimeout(finish,8000);
+  try{ pc.createDataChannel('diag'); pc.createOffer().then(o=>pc.setLocalDescription(o)).catch(e=>diagPrint('Ошибка оффера: '+e.message+'\n')); }catch(e){ diagPrint('Ошибка: '+e.message+'\n'); }
+}
+function diagReveal(){ if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){ diagPrint('getUserMedia недоступен в этом браузере.\n'); return; }
+  navigator.mediaDevices.getUserMedia({audio:true}).then(s=>{ s.getTracks().forEach(t=>t.stop()); diagPrint('Доступ к микрофону выдан — Chrome раскрывает реальные локальные IP. Повторяю проверку…\n'); diagCandidates(); }).catch(e=>diagPrint('Микрофон не выдан: '+(e.message||e.name||e)+'\n')); }
 
 /* --- chat --- */
 function audioCtx(){ try{ if(!_actx){ const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return null; _actx=new AC(); } if(_actx.state==='suspended') _actx.resume(); }catch(e){ return null; } return _actx; }
