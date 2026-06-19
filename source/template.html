@@ -994,7 +994,7 @@ $('#modalBg').addEventListener('click',e=>{ if(e.target.id==='modalBg'||e.target
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal(); });
 
 /* ========================= collaboration + chat (WebRTC P2P) ========================= */
-let peer=null, peerConnected=false, peerLost=false, isHost=false, lastRole=null, applyingRemote=false, _collabStep=null, _lastSignal='', _sendTimer=null, _hbTimer=null, _lastRx=0;
+let peer=null, peerConnected=false, peerLost=false, isHost=false, lastRole=null, applyingRemote=false, _collabStep=null, _lastSignal='', _sendTimer=null, _hbTimer=null, _lastRx=0, _answerApplied=false;
 function startKeepAlive(){ _lastRx=Date.now(); stopKeepAlive(); _hbTimer=setInterval(()=>{ if(peerConnected) collabSend({t:'ping'}); },7000); }
 function stopKeepAlive(){ if(_hbTimer){ clearInterval(_hbTimer); _hbTimer=null; } }
 function handleDisconnect(){ const wc=peerConnected; stopKeepAlive(); peerConnected=false; if(peer){ try{peer.destroy();}catch(e){} } peer=null; _collabStep=null; _lastSignal='';
@@ -1056,7 +1056,7 @@ function endPeer(msg){ stopKeepAlive(); peerConnected=false; peerLost=false; if(
   updateCollabBtn(); showChatFab(CHAT.length>0); if(msg) toast(msg); }
 
 function collabHost(){ if(!hasSP()){ toast('Библиотека P2P не загрузилась (нужен интернет)'); return; }
-  endPeer(); isHost=true; lastRole='host'; _collabStep='host'; peer=new SimplePeer({initiator:true,trickle:false,config:getIce()}); wirePeer(); renderCollabModal(); }
+  endPeer(); isHost=true; lastRole='host'; _answerApplied=false; _collabStep='host'; peer=new SimplePeer({initiator:true,trickle:false,config:getIce()}); wirePeer(); renderCollabModal(); }
 function collabJoinStart(){ lastRole='guest'; _collabStep='join'; renderCollabModal(); }
 function collabJoinAccept(){ if(!hasSP()){ toast('Библиотека P2P не загрузилась'); return; }
   const code=(($('#collabIn')||{}).value||'').trim(); if(!code){ toast('Вставьте код-приглашение'); return; }
@@ -1066,9 +1066,11 @@ function collabJoinAccept(){ if(!hasSP()){ toast('Библиотека P2P не 
 function collabAcceptAnswer(){ const code=(($('#collabIn')||{}).value||'').trim(); if(!code){ toast('Вставьте код-ответ'); return; }
   if(!peer){ toast('Сначала создайте сессию'); return; }
   if(peerConnected){ toast('Уже подключено'); return; }
-  if(peer._pc && peer._pc.signalingState && peer._pc.signalingState!=='have-local-offer'){ toast('Код-ответ уже принят — дождитесь подключения. Если не вышло, создайте сессию заново.'); return; }
+  if(_answerApplied || (peer._pc && peer._pc.signalingState && peer._pc.signalingState!=='have-local-offer')){ toast('Код-ответ уже принят — дождитесь подключения. Если не вышло, создайте сессию заново.'); return; }
   let sig; try{ sig=b64dec(code); }catch(e){ toast('Неверный формат кода'); return; }
-  try{ peer.signal(sig); toast('Подключаюсь…'); const b=document.getElementById('cbAns'); if(b){ b.disabled=true; b.textContent='Подключаюсь…'; } }catch(e){ toast('Не удалось обработать ответ'); } }
+  _answerApplied=true;
+  const b=document.getElementById('cbAns'); if(b){ b.disabled=true; b.textContent='Подключаюсь…'; }
+  try{ peer.signal(sig); toast('Подключаюсь…'); }catch(e){ _answerApplied=false; if(b){ b.disabled=false; b.textContent='Подключиться'; } toast('Не удалось обработать ответ'); } }
 
 /* --- collaboration modal --- */
 function openCollabModal(){ renderCollabModal(); }
