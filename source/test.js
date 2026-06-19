@@ -156,7 +156,7 @@ setTimeout(()=>{
     api.simulateConnectedDrop();
     ok(w.document.querySelector('#collabBtn').textContent==='🔴',"collab button shows lost state after drop");
     ok(w.document.querySelector('#cbRe')!==null,"reconnect button shown after drop");
-    ok(/^v0\.2\.1/.test(w.document.querySelector('#verBadge').textContent),"version badge shows v0.2.1 ("+w.document.querySelector('#verBadge').textContent+")");
+    ok(/^v0\.2\.2/.test(w.document.querySelector('#verBadge').textContent),"version badge shows v0.2.2 ("+w.document.querySelector('#verBadge').textContent+")");
     ok(w.document.querySelector('#view-prep #btnExportCfg')!==null,"data import/export/reset moved to Подготовка");
     ok(w.document.querySelector('#view-matrix #btnExportCfg')===null,"data block removed from Матрицы");
     api.setView('help');
