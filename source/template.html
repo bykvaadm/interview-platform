@@ -409,7 +409,7 @@ function loadSession(){
   try{ const r=localStorage.getItem(LS.session); if(r){ SESSION=JSON.parse(r); } }catch(e){}
   if(!SESSION||!SESSION.items){ SESSION={meta:{candidate:'',position:'',interviewer:'',date:new Date().toISOString().slice(0,10),notes:''},items:[]}; }
 }
-function saveSession(){ try{ localStorage.setItem(LS.session,JSON.stringify(SESSION)); }catch(e){} }
+function saveSession(){ try{ localStorage.setItem(LS.session,JSON.stringify(SESSION)); }catch(e){} if(!_remoteUpdate&&sp&&!sp.destroyed){ sp.send(JSON.stringify({type:'collab:sync',session:SESSION})); } }
 
 function catGroup(name){ const c=(DATA.categories||[]).find(x=>x.name===name); return c?c.group:'SPECIFIC'; }
 function points(quality,diff){ const m=DATA.scoreMatrix[quality]; return m?(+m[diff]||0):0; }
@@ -936,13 +936,261 @@ $('#importFile').addEventListener('change',e=>{ const f=e.target.files[0]; if(!f
 $('#modalBg').addEventListener('click',e=>{ if(e.target.id==='modalBg'||e.target.closest('[data-mclose]')) closeModal(); });
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal(); });
 
-/* ========================= init ========================= */
+/* ========================= collaboration (SimplePeer) ========================= */
+let sp = null, _remoteUpdate = false, _collabAnswerPending = false, _collabAcceptedAnswer = null;
+const _collabIce = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+
+function openCollabModal(){
+  const conn = sp && !sp.destroyed;
+  const statusHtml = conn
+    ? `<div class="hint" style="color:var(--green);font-weight:600;text-align:center;margin-bottom:10px">✓ Подключено · данные синхронизируются</div>`
+    : `<details class="help" style="margin-bottom:8px"><summary>Инструкция</summary>
+      <div class="hc" style="font-size:13px">
+      <b>Организатор</b> нажимает «Создать сессию» → копирует код приглашения → отправляет второму участнику.<br><br>
+      <b>Второй участник</b> вставляет код приглашения в поле ниже → нажимает «Подключиться» → копирует код ответа → отправляет организатору.<br><br>
+      <b>Организатор</b> вставляет код ответа в верхнее поле → нажимает «Принять ответ» → соединение установлено.</div></details>`;
+
+  openModal(`<div class="mhead"><h3 style="margin:0">👥 Совместное редактирование</h3><button class="icon-btn" data-mclose>✕</button></div>
+    <div class="mbody">
+      ${statusHtml}
+
+      <div style="display:grid;gap:14px">
+        <!-- Блок организатора -->
+        <div style="background:var(--surface-2);border-radius:12px;padding:12px">
+          <div class="spread"><h4 style="margin:0">🎤 Организатор</h4>
+            <div class="row" style="gap:6px">
+              <button class="btn btn-sm btn-primary" id="collabHost" ${conn?'disabled':''}>Создать сессию</button>
+              ${conn?`<button class="btn btn-sm btn-danger" id="collabDisconnect">Отключиться</button>`:''}
+            </div>
+          </div>
+          <div style="margin-top:10px">
+            <label class="fld">Код приглашения (для отправки второму участнику):</label>
+            <textarea class="input" id="collabOfferCode" rows="4" readonly style="font-size:13px;font-family:var(--mono)" placeholder="нажмите «Создать сессию» — здесь появится код"></textarea>
+            <div style="margin-top:6px"><button class="btn btn-sm" id="collabCopyOffer" onclick="navigator.clipboard.writeText(document.getElementById('collabOfferCode').value).then(()=>toast('Код скопирован'))">📋 Скопировать</button></div>
+          </div>
+          <div style="margin-top:10px">
+            <label class="fld">Код ответа от второго участника (вставьте сюда):</label>
+            <textarea class="input" id="collabAnswerCode" rows="4" placeholder="вставьте код, который прислал второй участник"></textarea>
+            <div style="margin-top:6px"><button class="btn btn-sm btn-primary" id="collabAcceptAnswer" ${conn?'disabled':''}>🔗 Принять ответ</button></div>
+          </div>
+        </div>
+
+        <!-- Блок второго участника -->
+        <div style="background:var(--surface-2);border-radius:12px;padding:12px">
+          <div class="spread"><h4 style="margin:0">📞 Второй участник</h4>
+            <button class="btn btn-sm" id="collabJoin" ${conn?'disabled':''}>🔗 Подключиться</button></div>
+          <div style="margin-top:10px">
+            <label class="fld">Код приглашения от организатора (вставьте сюда):</label>
+            <textarea class="input" id="collabRemoteOffer" rows="4" placeholder="вставьте код, который прислал организатор"></textarea>
+          </div>
+          <div style="margin-top:10px">
+            <label class="fld">Код ответа (отправьте организатору):</label>
+            <textarea class="input" id="collabAnswerCodeOut" rows="4" readonly style="font-size:13px;font-family:var(--mono)" placeholder="после нажатия «Подключиться» здесь появится код"></textarea>
+            <div style="margin-top:6px"><button class="btn btn-sm" id="collabCopyAnswer" onclick="navigator.clipboard.writeText(document.getElementById('collabAnswerCodeOut').value).then(()=>toast('Код скопирован'))">📋 Скопировать</button></div>
+          </div>
+        </div>
+      </div>
+    </div>`);
+  // Bind events
+  const hostBtn = document.getElementById('collabHost');
+  const joinBtn = document.getElementById('collabJoin');
+  const discBtn = document.getElementById('collabDisconnect');
+  const acceptBtn = document.getElementById('collabAcceptAnswer');
+  if(hostBtn) hostBtn.onclick = collabHost;
+  if(joinBtn) joinBtn.onclick = collabJoin;
+  if(discBtn) discBtn.onclick = collabDisconnect;
+  if(acceptBtn) acceptBtn.onclick = collabAcceptAnswer;
+}
+
+let _syncTimer = null;
+
+let _dirtyData = false;
+
+function startSyncTimer(){
+  if(_syncTimer) clearInterval(_syncTimer);
+  _syncTimer = setInterval(() => {
+    if(sp && !sp.destroyed && !_remoteUpdate){
+      sp.send(JSON.stringify({type:"collab:sync",session:SESSION}));
+      if(_dirtyData){
+        _dirtyData = false;
+        sp.send(JSON.stringify({type:"collab:syncData",data:DATA}));
+      }
+    }
+  }, 3000);
+}
+
+function collabHost(){
+  if(sp && !sp.destroyed) sp.destroy();
+  _collabAnswerPending = false;
+  _collabAcceptedAnswer = null;
+  toast('Генерирую приглашение…');
+  const codeEl = document.getElementById('collabOfferCode');
+  if(codeEl) codeEl.value = '⏳ генерация…';
+  sp = new SimplePeer({ initiator: true, config: _collabIce, trickle: true });
+  // Poll for local SDP offer
+  let tries = 0;
+  const timer = setInterval(() => {
+    if(sp && !sp.destroyed && sp._pc && sp._pc.localDescription && sp._pc.localDescription.sdp){
+      clearInterval(timer);
+      const sdp = { type: 'offer', sdp: sp._pc.localDescription.sdp };
+      const code = btoa(JSON.stringify(sdp));
+      const el = document.getElementById('collabOfferCode');
+      if(el && !el.value.startsWith('ey')){ el.value = code; el.style.background='var(--green-weak)'; }
+      try{ sessionStorage.setItem('collab.offer', code); }catch(e){}
+      toast('Код приглашения готов!');
+    }
+    if(++tries > 40){ clearInterval(timer); toast('Не удалось сгенерировать приглашение'); }
+  }, 250);
+  sp.on('connect', () => {
+    toast('Подключено!');
+    sp.send(JSON.stringify({type:'collab:sync',session:SESSION}));
+    startSyncTimer();
+    updateCollabBtn();
+    try{ sessionStorage.setItem('collab.info',JSON.stringify({role:'host'})); const of = document.getElementById('collabOfferCode')?.value; if(of) sessionStorage.setItem('collab.offer',of); const ans = document.getElementById('collabAnswerCode')?.value; if(ans) sessionStorage.setItem('collab.answer',ans); }catch(e){}
+    setTimeout(() => { if(document.querySelector('.modal-bg.open')) closeModal(); }, 2000);
+  });
+  sp.on('data', (raw) => { try{ onCollabData(JSON.parse(raw.toString())); }catch(e){} });
+  sp.on('close', () => { updateCollabBtn(); try{ sessionStorage.setItem('collab.closed','1'); }catch(e){} });
+  sp.on('error', (err) => { console.error(err); toast('Ошибка: ' + (err.message||'соединение')); });
+  updateCollabBtn();
+}
+
+function collabJoin(){
+  let code = document.getElementById('collabRemoteOffer')?.value?.trim();
+  if(!code){ try{ code = sessionStorage.getItem('collab.offer') || ''; }catch(e){} }
+  if(!code){ toast('Вставьте код приглашения от организатора'); return; }
+  let signalData;
+  try{ signalData = JSON.parse(atob(code)); }catch(e){ toast('Неверный формат кода'); return; }
+  if(sp && !sp.destroyed) sp.destroy();
+  sp = new SimplePeer({ initiator: false, config: _collabIce });
+  const outEl = document.getElementById('collabAnswerCodeOut');
+  if(outEl) outEl.value = '⏳ генерация ответа…';
+  sp.on('signal', (data) => {
+    if(outEl && data.sdp){
+      const sdp = { type: 'answer', sdp: data.sdp };
+      outEl.value = btoa(JSON.stringify(sdp));
+    }
+  });
+  sp.on('connect', () => {
+    toast('Подключено к организатору!');
+    sp.send(JSON.stringify({type:'collab:sync',session:SESSION}));
+    startSyncTimer();
+    updateCollabBtn();
+    try{ sessionStorage.setItem('collab.info',JSON.stringify({role:'guest'})); }catch(e){}
+    setTimeout(() => { if(document.querySelector('.modal-bg.open')) closeModal(); }, 2000);
+  });
+  sp.on('data', (raw) => { try{ onCollabData(JSON.parse(raw.toString())); }catch(e){} });
+  sp.on('close', () => { updateCollabBtn(); try{ sessionStorage.setItem('collab.closed','1'); }catch(e){} });
+  sp.on('error', (err) => { console.error(err); toast('Ошибка: ' + (err.message||'соединение')); });
+  sp.signal(signalData);
+  updateCollabBtn();
+}
+
+function collabAcceptAnswer(){
+  const code = document.getElementById('collabAnswerCode')?.value?.trim();
+  if(!code){ toast('Вставьте код ответа от второго участника'); return; }
+  if(!sp || sp.destroyed){ toast('Сначала создайте сессию'); return; }
+  let signalData;
+  try{ signalData = JSON.parse(atob(code)); }catch(e){ toast('Неверный формат кода'); return; }
+  if(signalData.type !== 'answer' || !signalData.sdp){ toast('Код не содержит SDP-ответ'); return; }
+  const pc = sp._pc;
+  if(_collabAnswerPending || _collabAcceptedAnswer === signalData.sdp || (pc && pc.signalingState === 'stable')){
+    toast('Ответ уже принят');
+    return;
+  }
+  if(pc && pc.signalingState !== 'have-local-offer'){
+    toast('Сессия ещё не готова принять ответ');
+    return;
+  }
+  _collabAnswerPending = true;
+  _collabAcceptedAnswer = signalData.sdp;
+  const acceptBtn = document.getElementById('collabAcceptAnswer');
+  if(acceptBtn) acceptBtn.disabled = true;
+  sp.signal(signalData);
+  toast('Обрабатываю ответ…');
+}
+
+function collabDisconnect(){
+  if(_syncTimer){ clearInterval(_syncTimer); _syncTimer = null; }
+  if(sp && !sp.destroyed) sp.destroy();
+  sp = null;
+  _collabAnswerPending = false;
+  _collabAcceptedAnswer = null;
+  closeModal();
+  updateCollabBtn();
+  toast('Отключено');
+}
+
+function onCollabData(data){
+  if(!data || !data.type) return;
+  if(data.type === 'collab:sync' && data.session){
+    _remoteUpdate = true;
+    SESSION = clone(data.session);
+    try{ localStorage.setItem(LS.session, JSON.stringify(SESSION)); }catch(e){}
+    updatePills();
+    if(view === 'interview') renderInterview();
+    _remoteUpdate = false;
+  }
+  if(data.type === 'collab:syncData' && data.data){
+    _remoteUpdate = true;
+    DATA = clone(data.data);
+    try{ localStorage.setItem(LS.data, JSON.stringify(DATA)); }catch(e){}
+    updatePills();
+    if(view === 'bank') renderBank();
+    if(view === 'matrix') renderMatrix();
+    if(view === 'prep') renderPrep();
+    _remoteUpdate = false;
+  }
+}
+
+function updateCollabBtn(){
+  const btn = document.getElementById('collabBtn');
+  if(!btn) return;
+  btn.textContent = (sp && !sp.destroyed) ? '🟢' : '👥';
+}
+
+/* ========================= init ========================= *//* ========================= init ========================= */
 (function init(){
   let th='light'; try{ th=localStorage.getItem(LS.theme)||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'); }catch(e){}
   document.documentElement.setAttribute('data-theme',th); $('#themeBtn').textContent=th==='dark'?'☀️':'🌙';
   loadData(); loadSession();
   if(!DATA||!DATA.questions){ DATA=defaultData(); }
   updatePills(); setView('prep');
+  try{
+    const savedId = sessionStorage.getItem('oprosnik.collab.id');
+    if(savedId) _collabId = savedId;
+  }catch(e){}
+  try{
+    var collabInfo = sessionStorage.getItem('collab.info');
+    if(collabInfo && collabInfo !== '{}'){
+      var info = JSON.parse(collabInfo);
+      setTimeout(function(){
+        toast('Переподключение к собеседованию…');
+        var btn = document.getElementById('collabBtn');
+        if(btn) btn.click();
+        var checkModal = function(attempts){
+          if(attempts <= 0) return;
+          setTimeout(function(){
+            if(info.role === 'host'){
+              var hb = document.getElementById('collabHost');
+              if(hb){ hb.click(); return; }
+            } else if(info.role === 'guest'){
+              var el = document.getElementById('collabRemoteOffer');
+              if(el){
+                var offer = (function(){ try{ return sessionStorage.getItem('collab.offer'); }catch(e){} })();
+                if(offer) el.value = offer;
+                var jb = document.getElementById('collabJoin');
+                if(jb){ jb.click(); return; }
+              }
+            }
+            checkModal(attempts - 1);
+          }, 300);
+        };
+        checkModal(15);
+      }, 1500);
+    }
+    try{ sessionStorage.removeItem('collab.closed'); }catch(e){}
+  }catch(e){}
 })();
 </script>
 </body>
