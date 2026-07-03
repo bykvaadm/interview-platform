@@ -44,13 +44,17 @@ small{color:var(--muted)}
 /* Header */
 header{position:sticky;top:0;z-index:30;background:color-mix(in srgb,var(--surface) 88%,transparent);
   backdrop-filter:saturate(160%) blur(10px);border-bottom:1px solid var(--border)}
-.head-inner{max-width:1140px;margin:0 auto;padding:12px 20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.head-inner{max-width:1140px;margin:0 auto;padding:12px 20px;display:flex;align-items:center;gap:12px;flex-wrap:nowrap}
 .brand{display:flex;align-items:center;gap:11px;min-width:0}
+.brand>div{min-width:0;display:flex;align-items:center;gap:6px}
 .logo{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--accent),#9333ea);
   display:grid;place-items:center;color:#fff;font-weight:800;font-size:17px;flex:none;box-shadow:var(--shadow)}
-.brand b{font-size:16px;font-weight:680;white-space:nowrap}
+.brand b{font-size:16px;font-weight:680;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.ver-badge{font-size:11px;font-weight:600;color:var(--muted);background:var(--surface-2);border:1px solid var(--border);border-radius:20px;padding:1px 7px;cursor:pointer;vertical-align:middle;white-space:nowrap;flex:none}
+.ver-badge:hover{color:var(--text)}
 .brand span{display:block;font-size:11.5px;color:var(--muted)}
-nav.tabs{display:flex;gap:4px;margin-left:auto;flex-wrap:wrap}
+nav.tabs{display:flex;gap:4px;margin-left:auto;flex-wrap:nowrap;min-width:0;overflow-x:auto;scrollbar-width:none}
+nav.tabs::-webkit-scrollbar{display:none}
 .tab{appearance:none;border:0;background:transparent;color:var(--muted);font:inherit;font-weight:550;
   padding:8px 13px;border-radius:9px;cursor:pointer;display:flex;align-items:center;gap:7px;font-size:14px}
 .tab:hover{background:var(--surface-2);color:var(--text)}
@@ -82,15 +86,15 @@ main{max-width:1140px;margin:0 auto;padding:22px 20px 80px}
 .btn{appearance:none;border:1px solid var(--border);background:var(--surface);color:var(--text);
   font:inherit;font-weight:560;font-size:14px;padding:9px 14px;border-radius:10px;cursor:pointer;
   display:inline-flex;align-items:center;gap:8px;transition:.12s;white-space:nowrap}
-.btn:hover{background:var(--surface-2)}
+.btn:hover{background:var(--surface-3);border-color:var(--muted-2)}
 .btn:active{transform:translateY(1px)}
 .btn-primary{background:var(--accent);color:var(--accent-text);border-color:transparent}
-.btn-primary:hover{filter:brightness(1.07)}
+.btn-primary:hover{filter:brightness(1.08);background:var(--accent);border-color:transparent}
 .btn-danger{color:var(--red);border-color:color-mix(in srgb,var(--red) 35%,var(--border))}
-.btn-danger:hover{background:var(--red-weak)}
+.btn-danger:hover{background:var(--red-weak);border-color:color-mix(in srgb,var(--red) 45%,var(--border))}
 .btn-sm{padding:6px 10px;font-size:13px;border-radius:8px}
 .btn-ghost{border-color:transparent;background:transparent}
-.btn-ghost:hover{background:var(--surface-2)}
+.btn-ghost:hover{background:var(--surface-2);border-color:transparent}
 .btn:disabled{opacity:.5;cursor:not-allowed}
 
 .input,.select,textarea{appearance:none;width:100%;font:inherit;font-size:14px;color:var(--text);
@@ -193,7 +197,51 @@ table.tbl tr:hover td{background:var(--surface-2)}
 #toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);opacity:0;
   background:var(--text);color:var(--bg);font-weight:560;font-size:14px;padding:11px 18px;border-radius:11px;
   box-shadow:var(--shadow-lg);z-index:90;transition:.25s;pointer-events:none}
-#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:auto;cursor:pointer}
+
+/* chat */
+.chat-fab{position:fixed;right:20px;bottom:20px;z-index:70;width:52px;height:52px;border-radius:50%;border:0;
+  background:var(--accent);color:var(--accent-text);font-size:22px;cursor:pointer;box-shadow:var(--shadow-lg);display:grid;place-items:center}
+.chat-fab:hover{filter:brightness(1.07)}
+.chat-fab[hidden],.chat-panel[hidden]{display:none}
+.chat-panel.collapsed{height:auto}
+.chat-panel.collapsed .chat-log,.chat-panel.collapsed .chat-input{display:none}
+.chat-head .h-title{cursor:pointer;user-select:none}
+.chat-head-btns{display:flex;gap:4px;flex:none}
+.chat-badge{position:absolute;top:-3px;right:-3px;background:var(--red);color:#fff;font-size:11px;font-weight:700;min-width:18px;height:18px;border-radius:10px;display:grid;place-items:center;padding:0 4px}
+.chat-panel{position:fixed;right:20px;bottom:20px;z-index:71;width:340px;max-width:calc(100vw - 32px);height:460px;max-height:calc(100vh - 96px);
+  background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow-lg);display:flex;flex-direction:column;overflow:hidden}
+.chat-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 14px;border-bottom:1px solid var(--border)}
+.chat-head .icon-btn{width:30px;height:30px;font-size:14px}
+.chat-log{flex:1;overflow:auto;padding:12px;display:flex;flex-direction:column;gap:9px}
+.chat-msg{max-width:86%;display:flex;flex-direction:column;gap:2px}
+.chat-msg.grouped{margin-top:-4px}
+
+/* resume viewer */
+.resume-wrap{display:flex;gap:16px;align-items:flex-start}
+.resume-view{flex:1;min-width:0;max-height:calc(100vh - 230px);overflow:auto;background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:12px}
+.resume-notes{width:330px;flex:none;max-height:calc(100vh - 230px);overflow:auto}
+.pdf-page{position:relative;margin:0 auto 12px;background:#fff;box-shadow:var(--shadow)}
+.pdf-page canvas{display:block}
+.textLayer{position:absolute;left:0;top:0;overflow:hidden;line-height:1}
+.textLayer span,.textLayer br{position:absolute;white-space:pre;transform-origin:0 0;color:transparent}
+.textLayer ::selection{background:rgba(79,70,229,.45)}
+#resumeCommentBtn{position:fixed;z-index:76;transform:translateX(-50%);box-shadow:var(--shadow-lg)}
+.rnote{border:1px solid var(--border);border-radius:10px;padding:9px 11px;margin-bottom:9px}
+.rnote-q{font-size:12.5px;color:var(--muted);cursor:pointer;border-left:3px solid var(--accent);padding-left:8px;margin-bottom:5px}
+.rnote-q:hover{color:var(--text)}
+.rnote-c{font-size:14px;white-space:pre-wrap;word-break:break-word}
+@media (max-width:820px){ .resume-wrap{flex-direction:column} .resume-notes{width:auto;max-height:none} .resume-view{max-height:70vh} }
+.chat-msg.me{align-self:flex-end;align-items:flex-end}
+.chat-msg.them{align-self:flex-start}
+.chat-meta{font-size:11px;color:var(--muted)}
+.chat-bub{padding:7px 11px;border-radius:13px;background:var(--surface-2);font-size:14px;line-height:1.4;word-break:break-word;white-space:pre-wrap}
+.chat-msg.me .chat-bub{background:var(--accent);color:var(--accent-text)}
+.chat-sys{align-self:center;font-size:12px;color:var(--muted-2);padding:1px 8px}
+.chat-input{display:flex;gap:8px;padding:10px;border-top:1px solid var(--border)}
+.chat-input .input{flex:1}
+.chat-input .btn{padding:9px 15px}
+@media (max-width:680px){ .chat-panel{right:8px;left:8px;bottom:8px;width:auto;height:62vh} .chat-fab{right:14px;bottom:14px} }
 
 .matrix-grid{overflow:auto}
 .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
@@ -208,7 +256,7 @@ details.help[open]>summary:before{transform:rotate(90deg)}
 details.help .hc{padding:0 16px 16px;color:var(--muted);font-size:14px}
 details.help .hc b{color:var(--text)}
 kbd{font-family:var(--mono);font-size:12px;background:var(--surface-2);border:1px solid var(--border);border-radius:5px;padding:1px 6px}
-@media (max-width:680px){
+@media (max-width:860px){
   .icard .calc{margin-left:0}
   /* first row: logo + (truncating) title ... theme + burger; menu wraps to its own row */
   .head-inner{gap:8px;flex-wrap:wrap;padding:10px 14px}
@@ -230,15 +278,17 @@ kbd{font-family:var(--mono);font-size:12px;background:var(--surface-2);border:1p
   <div class="head-inner">
     <div class="brand">
       <div class="logo">?</div>
-      <div><b>Опросник для собеседований</b><span>DevOps / SRE · конструктор и оценка грейда</span></div>
+      <div><b>Опросник для собеседований</b> <span class="ver-badge" id="verBadge" title="История изменений"></span></div>
     </div>
     <nav class="tabs" id="tabs">
       <button class="tab active" data-view="prep">📋 Подготовка</button>
       <button class="tab" data-view="interview">🎤 Собеседование <span class="pill" id="pill-session">0</span></button>
+      <button class="tab" data-view="resume">📄 Резюме <span class="pill" id="pill-resume">0</span></button>
       <button class="tab" data-view="bank">🗂 Банк <span class="pill" id="pill-bank">0</span></button>
       <button class="tab" data-view="matrix">⚙️ Матрицы</button>
       <button class="tab" data-view="help">❓ Инструкция</button>
     </nav>
+    <button class="icon-btn" id="collabBtn" title="Совместная работа">👥</button>
     <button class="icon-btn" id="themeBtn" title="Сменить тему">🌙</button>
     <button class="icon-btn nav-toggle" id="navToggle" title="Меню" aria-label="Меню">☰</button>
   </div>
@@ -254,6 +304,18 @@ kbd{font-family:var(--mono);font-size:12px;background:var(--surface-2);border:1p
       </div>
       <div class="row" id="presetBar"></div>
     </div>
+    <details class="help" id="dataPanel" style="margin-bottom:16px">
+      <summary>💾 Данные: импорт / экспорт / сброс конфигурации</summary>
+      <div class="hc">
+        <div class="row">
+          <button class="btn btn-sm" id="btnExportCfg">⬇︎ Экспорт (JSON)</button>
+          <button class="btn btn-sm" id="btnImportCfg">⬆︎ Импорт</button>
+          <input type="file" id="importFile" accept="application/json,.json" hidden>
+          <button class="btn btn-sm btn-danger" id="btnResetData">↺ Сбросить к исходному</button>
+        </div>
+        <div class="hint" style="margin-top:10px">Один JSON со всем: вопросы + категории + матрицы (баллов и ожиданий) + пресеты. Хранится в localStorage; экспорт/импорт — для переноса на другое устройство или шаринга. Сброс возвращает исходный набор (текущая сессия не затрагивается).</div>
+      </div>
+    </details>
     <div class="panel pad stack" style="margin-bottom:16px">
       <div class="spread">
         <div><h2 style="margin:0">Подготовка собеседования</h2>
@@ -290,7 +352,7 @@ kbd{font-family:var(--mono);font-size:12px;background:var(--surface-2);border:1p
       <div class="row">
         <div class="grow" style="min-width:180px"><label class="fld">Кандидат</label><input class="input" id="m_candidate" placeholder="ФИО кандидата"></div>
         <div style="min-width:160px"><label class="fld">Целевой грейд</label><select class="select" id="m_position"></select></div>
-        <div class="grow" style="min-width:180px"><label class="fld">Интервьюер</label><input class="input" id="m_interviewer" placeholder="кто проводит"></div>
+        <div class="grow" style="min-width:180px"><label class="fld">Интервьюер(ы)</label><input class="input" id="m_interviewer" placeholder="кто проводит (можно двоих)"></div>
         <div style="min-width:140px"><label class="fld">Дата</label><input class="input" id="m_date" type="date"></div>
       </div>
       <div><label class="fld">Комментарий / итоговое впечатление</label><textarea id="m_notes" placeholder="Свободные заметки по кандидату…"></textarea></div>
@@ -306,6 +368,27 @@ kbd{font-family:var(--mono);font-size:12px;background:var(--surface-2);border:1p
       </div>
     </div>
     <div id="interviewList"></div>
+  </section>
+
+  <!-- RESUME -->
+  <section class="view" id="view-resume">
+    <div class="panel pad" style="margin-bottom:16px">
+      <div class="spread">
+        <div><h2 style="margin:0">📄 Резюме кандидата</h2><div class="hint">Загрузите PDF, выделите фрагмент мышью и нажмите «💬 Комментарий». Комментарий с цитатой попадёт в выгрузку (Excel/PDF) и синхронизируется с коллегой.</div></div>
+        <div class="row">
+          <button class="btn btn-sm btn-primary" id="resumeUploadBtn">⬆︎ Загрузить PDF</button>
+          <input type="file" id="resumeFile" accept="application/pdf,.pdf" hidden>
+          <button class="btn btn-sm btn-ghost" id="resumeClearBtn" hidden>Убрать PDF</button>
+        </div>
+      </div>
+    </div>
+    <div class="resume-wrap">
+      <div class="resume-view" id="resumeView">
+        <div id="pdfPages"></div>
+        <div class="center-empty" id="resumeEmpty">PDF не загружен. Нажмите «Загрузить PDF».</div>
+      </div>
+      <div class="resume-notes panel pad" id="resumeNotesPanel"></div>
+    </div>
   </section>
 
   <!-- BANK -->
@@ -340,16 +423,6 @@ kbd{font-family:var(--mono);font-size:12px;background:var(--surface-2);border:1p
         <div class="hint" style="margin-bottom:12px">Как, по вашему мнению, кандидат каждого грейда должен отвечать на вопросы разной сложности. Используется для расчёта порогов грейда.</div>
         <div class="matrix-grid"><table class="tbl" id="expMatrixTbl"></table></div>
       </div>
-      <div class="panel pad">
-        <h2>Данные и сброс</h2>
-        <div class="row">
-          <button class="btn btn-sm" id="btnExportCfg">⬇︎ Экспорт конфигурации (JSON)</button>
-          <button class="btn btn-sm" id="btnImportCfg">⬆︎ Импорт конфигурации</button>
-          <input type="file" id="importFile" accept="application/json,.json" hidden>
-          <button class="btn btn-sm btn-danger" id="btnResetData">↺ Сбросить банк и матрицы к исходному</button>
-        </div>
-        <div class="hint" style="margin-top:10px">Конфигурация (банк + матрицы) хранится в localStorage этого браузера. Чтобы перенести её на другое устройство, используйте экспорт/импорт JSON.</div>
-      </div>
     </div>
   </section>
 
@@ -367,12 +440,24 @@ kbd{font-family:var(--mono);font-size:12px;background:var(--surface-2);border:1p
 
 <div class="modal-bg" id="modalBg"><div class="modal" id="modal"></div></div>
 <div id="toast"></div>
+<button id="resumeCommentBtn" class="btn btn-primary btn-sm" hidden>💬 Комментарий</button>
+
+<button id="chatFab" class="chat-fab" hidden title="Чат интервьюеров">💬<span id="chatBadge" class="chat-badge" hidden>0</span></button>
+<div id="chatPanel" class="chat-panel" hidden>
+  <div class="chat-head"><b class="h-title" id="chatTitle" title="Свернуть/развернуть">💬 Чат<span id="chatCount"></span></b><div class="chat-head-btns"><button class="icon-btn" id="chatSoundBtn" title="Звук">🔔</button><button class="icon-btn" id="chatMin" title="Свернуть">—</button><button class="icon-btn" id="chatClose" title="Закрыть">✕</button></div></div>
+  <div class="chat-log" id="chatLog"></div>
+  <div class="chat-input"><input id="chatText" class="input" placeholder="Сообщение… (Enter)" autocomplete="off"><button class="btn btn-primary" id="chatSend" title="Отправить">▶</button></div>
+</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/simple-peer@9.11.1/simplepeer.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
 <script>
 "use strict";
 window.PREDEFINED_DATA = /*__PREDEFINED_DATA__*/ null;
+const APP_VERSION = /*__APP_VERSION__*/ "0.0.0";
+const APP_CHANGELOG = /*__APP_CHANGELOG__*/ "";
 
 /* ========================= helpers ========================= */
 const $ = s => document.querySelector(s);
@@ -381,7 +466,9 @@ const clone = o => JSON.parse(JSON.stringify(o));
 const esc = s => String(s==null?"":s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const uid = () => 'u'+Math.random().toString(36).slice(2,9)+Date.now().toString(36).slice(-4);
 const fmt = n => { const r=Math.round(n*100)/100; return (Number.isInteger(r)?r:r.toFixed(2).replace(/0$/,'')).toString(); };
-function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),2200); }
+function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._t);
+  const dur=Math.min(9000,Math.max(2800,String(msg).length*60)); t._t=setTimeout(()=>t.classList.remove('show'),dur);
+  t.onclick=()=>{ clearTimeout(t._t); t.classList.remove('show'); }; }
 
 const LS={data:'oprosnik.data.v2',session:'oprosnik.session.v2',theme:'oprosnik.theme'};
 const QUALITY_EMPTY="— не оценено";
@@ -407,9 +494,10 @@ function loadData(){
 function saveData(){ try{ localStorage.setItem(LS.data,JSON.stringify(DATA)); }catch(e){ toast('Не удалось сохранить (localStorage недоступен)'); } }
 function loadSession(){
   try{ const r=localStorage.getItem(LS.session); if(r){ SESSION=JSON.parse(r); } }catch(e){}
-  if(!SESSION||!SESSION.items){ SESSION={meta:{candidate:'',position:'',interviewer:'',date:new Date().toISOString().slice(0,10),notes:''},items:[]}; }
+  if(!SESSION||!SESSION.items){ SESSION={meta:{candidate:'',position:'',interviewer:'',date:new Date().toISOString().slice(0,10),notes:''},items:[],resumeNotes:[]}; }
+  if(!SESSION.resumeNotes) SESSION.resumeNotes=[];
 }
-function saveSession(){ try{ localStorage.setItem(LS.session,JSON.stringify(SESSION)); }catch(e){} }
+function saveSession(){ try{ localStorage.setItem(LS.session,JSON.stringify(SESSION)); }catch(e){} collabBroadcastSession(); }
 
 function catGroup(name){ const c=(DATA.categories||[]).find(x=>x.name===name); return c?c.group:'SPECIFIC'; }
 function points(quality,diff){ const m=DATA.scoreMatrix[quality]; return m?(+m[diff]||0):0; }
@@ -442,14 +530,16 @@ function setView(v){
   $$('.tab').forEach(t=>t.classList.toggle('active',t.dataset.view===v));
   $$('.view').forEach(s=>s.classList.toggle('active',s.id==='view-'+v));
   closeNav();
+  { const _rcb=$('#resumeCommentBtn'); if(_rcb) _rcb.hidden=true; }
   if(v==='prep') renderPrep();
   if(v==='interview') renderInterview();
+  if(v==='resume') renderResume();
   if(v==='bank') renderBank();
   if(v==='matrix') renderMatrix();
   if(v==='help') renderHelp();
   window.scrollTo({top:0,behavior:'smooth'});
 }
-function updatePills(){ $('#pill-session').textContent=SESSION.items.length; $('#pill-bank').textContent=DATA.questions.length; }
+function updatePills(){ $('#pill-session').textContent=SESSION.items.length; $('#pill-bank').textContent=DATA.questions.length; const pr=$('#pill-resume'); if(pr) pr.textContent=(SESSION.resumeNotes||[]).length; }
 
 /* ========================= PREP ========================= */
 const prepFilter={diff:'',group:'',cat:'',q:''};
@@ -502,7 +592,7 @@ function bindMeta(){
   const sel=$('#m_position');
   sel.innerHTML='<option value="">— не задан</option>'+DATA.grades.map(g=>`<option>${esc(g)}</option>`).join('');
   const map={m_candidate:'candidate',m_position:'position',m_interviewer:'interviewer',m_date:'date',m_notes:'notes'};
-  Object.entries(map).forEach(([id,key])=>{ const el=$('#'+id); el.value=SESSION.meta[key]||''; });
+  Object.entries(map).forEach(([id,key])=>{ const el=$('#'+id); if(el&&el!==document.activeElement) el.value=SESSION.meta[key]||''; });
 }
 function renderResults(){
   const r=results(); const el=$('#resultsPanel');
@@ -521,7 +611,7 @@ function renderResults(){
     return `<div class="tick" style="left:${left}%"></div><div class="tlabel" style="left:${left}%">${g}</div><div class="tval" style="left:${left}%">${fmt(r.T[i])}</div>`;
   }).join('');
   const mleft=Math.max(0,Math.min(100,(r.sum/r.maxT)*100));
-  const gtable=`<table class="tbl grade-table"><thead><tr><th>Грейд</th><th>Ожид. баллов</th><th>Кандидат</th><th>Δ</th></tr></thead><tbody>`+
+  const gtable=`<table class="tbl grade-table"><thead><tr><th>Грейд</th><th>Ожид. баллов</th><th>Кандидат</th><th title="Разница между суммой баллов кандидата и порогом грейда">Δ к порогу</th></tr></thead><tbody>`+
     r.grades.map((g,i)=>{ const reached=r.sum>=r.T[i]; const d=r.sum-r.T[i];
       return `<tr><td><b>${g}</b></td><td>${fmt(r.T[i])}</td>
         <td class="${reached?'reached':'notreached'}">${reached?'✓ достигнут':'не достигнут'}</td>
@@ -539,7 +629,8 @@ function renderResults(){
       <div class="fill" style="width:${mleft}%"></div>${ticks}
       <div class="marker" style="left:${mleft}%"><div class="flag">${fmt(r.sum)}</div></div>
     </div></div>
-    ${gtable}`;
+    ${gtable}
+    <div class="hint" style="margin-top:9px"><b>Δ к порогу</b> — разница между суммой баллов кандидата и порогом грейда. «<span style="color:var(--green)">+N</span>» — грейд достигнут, столько баллов в запасе; «<span class="muted">−N</span>» — столько баллов не хватает до этого грейда.</div>`;
 }
 function qualityOptions(sel){
   const opts=['<option value="">'+QUALITY_EMPTY+'</option>'];
@@ -660,9 +751,19 @@ function renderHelp(){
     ['Ход собеседования','Во вкладке <b>Собеседование</b> по мере ответа отмечайте галочками «ключевые точки» — это снижает субъективность. Можно подсказывать кандидату наводящими вопросами из ключевых точек. Итоговый балл за вопрос задаётся полем <b>«Оценка рекрутёра»</b>. У каждого вопроса есть поле <b>«Комментарий»</b> для свободных заметок, а кнопкой <b>▾</b> карточку можно свернуть (останется только вопрос и итоговый балл) — удобно во время живого диалога. Кнопки <b>«Свернуть/Развернуть все»</b> — над списком. Внизу формы кандидата есть общий <b>«Комментарий / итоговое впечатление»</b>. Всё это попадает в экспорт Excel и PDF.'],
     ['Как считается балл','За каждый оценённый вопрос: балл = значение из <b>матрицы баллов</b> (степень раскрытия × сложность) + <b>корр. баллы</b>. Корр. баллы — для исключительных случаев (кандидат знает тему сверх ожидаемого). Ориентируйтесь на матрицу: 5 баллов — максимум за полностью раскрытый сложный вопрос, не давайте +5 к Low-вопросу.'],
     ['Грейд','Пороги грейдов считаются <b>по набору оценённых вопросов</b> и матрице ожиданий: для каждого грейда суммируется ожидаемый балл по всем вопросам. Сумма баллов кандидата сравнивается с порогами — определяется ближайший грейд и интервал (нижний/верхний грейд), между которыми находится кандидат. Неоценённые вопросы в расчёт не входят.'],
-    ['Сохранение и экспорт','Банк, матрицы и текущая сессия сохраняются в памяти браузера (localStorage) — можно закрыть вкладку и вернуться. Кнопки <b>Excel</b> и <b>PDF</b> выгружают результат. Во вкладке <b>Матрицы</b> есть экспорт/импорт конфигурации в JSON и сброс к исходному набору.'],
+    ['Сохранение и экспорт','Банк, матрицы и текущая сессия сохраняются в памяти браузера (localStorage) — можно закрыть вкладку и вернуться. Кнопки <b>Excel</b> и <b>PDF</b> выгружают результат собеседования. Во вкладке <b>Подготовка</b> (блок «Данные») — экспорт/импорт всей конфигурации одним JSON (вопросы + категории + матрицы + пресеты) и сброс к исходному.'],
   ];
-  $('#helpBlocks').innerHTML=blocks.map(([t,c],i)=>`<details class="help" ${i===0?'open':''}><summary>${t}</summary><div class="hc">${c}</div></details>`).join('');
+  const clog=()=>{ if(!APP_CHANGELOG) return '<div class="hint">нет данных</div>'; let out='',ul=false; const cl=()=>{ if(ul){out+='</ul>';ul=false;} };
+    APP_CHANGELOG.split('\n').forEach(l=>{
+      if(/^##\s*\[/.test(l)){ cl(); out+=`<div style="font-weight:700;margin:12px 0 3px">${esc(l.replace(/^##\s*/,''))}</div>`; }
+      else if(/^###\s+/.test(l)){ cl(); out+=`<div style="font-weight:600;color:var(--muted);margin-top:6px">${esc(l.replace(/^###\s+/,''))}</div>`; }
+      else if(/^#\s+/.test(l)){ }
+      else if(/^\s*-\s+/.test(l)){ if(!ul){ out+='<ul style="margin:3px 0 3px 18px;padding:0">'; ul=true; } out+=`<li>${esc(l.replace(/^\s*-\s+/,''))}</li>`; }
+      else if(l.trim()===''){ cl(); }
+      else { cl(); out+=`<div class="hint">${esc(l)}</div>`; }
+    }); cl(); return out; };
+  $('#helpBlocks').innerHTML=blocks.map(([t,c],i)=>`<details class="help" ${i===0?'open':''}><summary>${t}</summary><div class="hc">${c}</div></details>`).join('')
+    + `<details class="help"><summary>📝 История изменений (v${esc(APP_VERSION)})</summary><div class="hc">${clog()}</div></details>`;
 }
 
 /* ========================= mutations ========================= */
@@ -793,6 +894,7 @@ function exportXlsx(){
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws2,'Итог');
   XLSX.utils.book_append_sheet(wb,ws,'Результаты');
+  if((SESSION.resumeNotes||[]).length){ const ra=[['Стр.','Цитата из резюме','Комментарий']]; SESSION.resumeNotes.forEach(n=>ra.push([n.page,n.quote,n.comment])); const wr=XLSX.utils.aoa_to_sheet(ra); wr['!cols']=[{wch:6},{wch:60},{wch:50}]; XLSX.utils.book_append_sheet(wb,wr,'Резюме'); }
   const name=(SESSION.meta.candidate||'собеседование').replace(/[^\wа-яёА-ЯЁ\- ]/gi,'').trim()||'собеседование';
   XLSX.writeFile(wb,`Собес_${name}_${SESSION.meta.date||''}.xlsx`);
 }
@@ -848,6 +950,7 @@ function exportPdf(){
       <th style="text-align:right;padding:5px 8px;border-bottom:2px solid ${C.line};color:${C.mut}">Δ</th></tr></thead><tbody>${gradeRows}</tbody></table>
     <div style="font-weight:700;font-size:14px;margin-bottom:10px">Вопросы (${SESSION.items.length})</div>
     ${rowsHtml||'<div style="color:'+C.mut+'">нет вопросов</div>'}
+    ${(SESSION.resumeNotes||[]).length?`<div style="font-weight:700;font-size:14px;margin:16px 0 8px">Комментарии к резюме (${SESSION.resumeNotes.length})</div>`+SESSION.resumeNotes.map(n=>`<div style="border-left:3px solid ${C.accent};padding:5px 10px;margin-bottom:7px;page-break-inside:avoid"><div style="font-size:11.5px;color:${C.mut};font-style:italic">«${esc(n.quote)}» — стр. ${n.page}</div><div style="font-size:12.5px;margin-top:3px">${esc(n.comment)}</div></div>`).join(''):''}
     ${SESSION.meta.notes?`<div style="margin-top:14px;font-size:12px;color:${C.mut}"><b style="color:${C.ink}">Заметки:</b> ${esc(SESSION.meta.notes)}</div>`:''}`;
   document.body.appendChild(wrap);
   const name=(SESSION.meta.candidate||'собеседование').replace(/[^\wа-яёА-ЯЁ\- ]/gi,'').trim()||'собеседование';
@@ -902,7 +1005,7 @@ $('#interviewList').addEventListener('click',e=>{
 });
 $('#toggleCollapse').onclick=()=>{ if(!SESSION.items.length) return; const anyExpanded=SESSION.items.some(it=>!it.collapsed); setAllCollapsed(anyExpanded); };
 $('#btnClearSession').onclick=()=>{ if(!SESSION.items.length){toast('Сессия уже пуста');return;}
-  if(confirm('Очистить текущую сессию? Метаданные кандидата тоже будут сброшены.')){ SESSION={meta:{candidate:'',position:'',interviewer:'',date:new Date().toISOString().slice(0,10),notes:''},items:[]}; saveSession(); updatePills(); renderInterview(); toast('Сессия очищена'); } };
+  if(confirm('Очистить текущую сессию? Метаданные кандидата тоже будут сброшены.')){ SESSION={meta:{candidate:'',position:'',interviewer:'',date:new Date().toISOString().slice(0,10),notes:''},items:[],resumeNotes:[]}; saveSession(); updatePills(); renderInterview(); renderResumeNotes(); toast('Сессия очищена'); } };
 $('#btnXlsx').onclick=exportXlsx; $('#btnPdf').onclick=exportPdf;
 
 // bank
@@ -936,13 +1039,306 @@ $('#importFile').addEventListener('change',e=>{ const f=e.target.files[0]; if(!f
 $('#modalBg').addEventListener('click',e=>{ if(e.target.id==='modalBg'||e.target.closest('[data-mclose]')) closeModal(); });
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal(); });
 
+/* ========================= collaboration + chat (WebRTC P2P) ========================= */
+let peer=null, peerConnected=false, peerLost=false, isHost=false, lastRole=null, applyingRemote=false, _collabStep=null, _lastSignal='', _sendTimer=null, _hbTimer=null, _lastRx=0, _answerApplied=false, _fastTimer=null;
+function startKeepAlive(){ _lastRx=Date.now(); stopKeepAlive(); _hbTimer=setInterval(()=>{ if(peerConnected) collabSend({t:'ping'}); },7000); }
+function stopKeepAlive(){ if(_hbTimer){ clearInterval(_hbTimer); _hbTimer=null; } }
+/* быстрый код: не ждём полного сбора ICE — берём SDP как только есть хотя бы один кандидат */
+function stopFastSignal(){ if(_fastTimer){ clearInterval(_fastTimer); _fastTimer=null; } }
+function armFastSignal(){ stopFastSignal(); let n=0;
+  _fastTimer=setInterval(()=>{ n++;
+    if(_lastSignal || !peer){ stopFastSignal(); return; }
+    const pc=peer._pc, ld=pc&&pc.localDescription;
+    if(n>=4 && ld&&ld.sdp&&/a=candidate/.test(ld.sdp)){ _lastSignal=b64enc({type:ld.type,sdp:ld.sdp}); stopFastSignal(); if(_collabStep) renderCollabModal(); }
+    else if(n>24){ stopFastSignal(); }
+  },500);
+}
+function handleDisconnect(){ const wc=peerConnected; stopKeepAlive(); peerConnected=false; if(peer){ try{peer.destroy();}catch(e){} } peer=null; _collabStep=null; _lastSignal='';
+  if(wc){ peerLost=true; updateCollabBtn(); showChatFab(CHAT.length>0); addChatSystem('Соединение потеряно'); toast('Соединение потеряно — переподключитесь (кнопка 👥)'); if(document.visibilityState!=='hidden') openCollabModal(); }
+  else updateCollabBtn(); }
+let CHAT=[], chatUnread=0, chatCollapsed=false, chatSound=true, _actx=null, myDisplayName='', remoteName='';
+const DEFAULT_ICE=[
+  {urls:'stun:stun.l.google.com:19302'}
+];
+function getIce(){ let extra=[]; try{ const r=localStorage.getItem('oprosnik.turn'); if(r){ const o=JSON.parse(r); extra=Array.isArray(o)?o:[o]; } }catch(e){}
+  return {iceServers:DEFAULT_ICE.concat(extra.filter(s=>s&&s.urls))}; }
+const hasSP=()=>typeof SimplePeer!=='undefined';
+const b64enc=o=>btoa(unescape(encodeURIComponent(JSON.stringify(o))));
+const b64dec=s=>JSON.parse(decodeURIComponent(escape(atob(s))));
+function myName(){ return (myDisplayName||'').trim() || (isHost?'Организатор':'Участник'); }
+
+/* --- session sync (two-way, debounced, last-writer-wins) --- */
+function collabSend(obj){ if(peer&&peerConnected){ try{ peer.send(JSON.stringify(obj)); }catch(e){} } }
+function collabBroadcastSession(){ if(!peerConnected||applyingRemote) return;
+  clearTimeout(_sendTimer); _sendTimer=setTimeout(()=>collabSend({t:'sync',session:SESSION}),120); }
+function applyRemoteSession(s){ applyingRemote=true; SESSION=clone(s);
+  try{ localStorage.setItem(LS.session,JSON.stringify(SESSION)); }catch(e){}
+  updatePills();
+  if(view==='interview') renderInterviewKeepFocus(); else if(view==='prep') renderPrepList();
+  applyingRemote=false; }
+function renderInterviewKeepFocus(){
+  const ae=document.activeElement; let f=null;
+  if(ae&&ae.dataset){ for(const k of ['comment','corr','assess']){ if(ae.dataset[k]){ f={k,uid:ae.dataset[k]}; if(ae.selectionStart!=null){f.ss=ae.selectionStart;f.se=ae.selectionEnd;} break; } } }
+  renderInterview();
+  if(f){ const el=document.querySelector(`[data-${f.k}="${f.uid}"]`); if(el){ try{el.focus({preventScroll:true});}catch(e){try{el.focus();}catch(_){}}
+    if(f.ss!=null&&el.setSelectionRange){ try{el.setSelectionRange(f.ss,f.se);}catch(e){} } } }
+}
+
+/* --- data channel router --- */
+function onCollabData(raw){ _lastRx=Date.now(); let m; try{ m=JSON.parse(raw.toString()); }catch(e){ return; }
+  if(!m||!m.t) return;
+  if(m.t==='ping'||m.t==='pong') return;
+  if(m.t==='hello'){ remoteName=(m.name||'').trim(); if(remoteName) addChatSystem(remoteName+' на связи');
+    if(isHost && !((SESSION.meta.interviewer||'').trim())){ SESSION.meta.interviewer=[myName(),remoteName].filter(Boolean).sort().join(', '); saveSession(); if(view==='interview') bindMeta(); } return; }
+  if(m.t==='sync'&&m.session){ applyRemoteSession(m.session); }
+  else if(m.t==='chat'){ addChat({name:m.name,text:m.text,ts:m.ts},false); }
+}
+
+/* --- peer lifecycle --- */
+function wirePeer(){
+  peer.on('signal',d=>{ if(_lastSignal) return; _lastSignal=b64enc(d); stopFastSignal(); if(_collabStep) renderCollabModal(); });
+  peer.on('connect',()=>{ peerConnected=true; peerLost=false; _collabStep=null; audioCtx(); startKeepAlive(); updateCollabBtn(); showChatFab(true); closeModal();
+    toast('Соединение установлено'); addChatSystem('Соединение установлено'); collabSend({t:'hello',name:myName()}); if(isHost) collabSend({t:'sync',session:SESSION}); });
+  peer.on('data',onCollabData);
+  try{ if(peer._pc) peer._pc.addEventListener('iceconnectionstatechange',()=>{ diagPrint('ICE: '+(peer._pc&&peer._pc.iceConnectionState)+'\n'); }); }catch(e){}
+  peer.on('close',()=>{ if(peerConnected) handleDisconnect(); else endPeer(''); });
+  peer.on('error',e=>{ console.error('collab',e);
+    if(e && (/stable|wrong state|invalidstate|set_remote/i.test(String(e.code||'')+' '+String(e.message||'')))){ toast('Этот код уже применён — дождитесь подключения.'); return; }
+    if(peerConnected) handleDisconnect();
+    else endPeer('Не удалось соединиться. Частые причины: VPN или блокировщик WebRTC (инкогнито / отключите расширения), строгий NAT или разные сети. Можно вписать свой TURN в окне 👥.'); });
+}
+function endPeer(msg){ stopKeepAlive(); stopFastSignal(); peerConnected=false; peerLost=false; if(peer){ try{peer.destroy();}catch(e){} } peer=null; _collabStep=null; _lastSignal='';
+  updateCollabBtn(); showChatFab(CHAT.length>0); if(msg) toast(msg); }
+
+function collabHost(){ if(!hasSP()){ toast('Библиотека P2P не загрузилась (нужен интернет)'); return; }
+  endPeer(); isHost=true; lastRole='host'; _answerApplied=false; _collabStep='host'; peer=new SimplePeer({initiator:true,trickle:false,config:getIce()}); wirePeer(); armFastSignal(); renderCollabModal(); }
+function collabJoinStart(){ lastRole='guest'; _collabStep='join'; renderCollabModal(); }
+function collabJoinAccept(){ if(!hasSP()){ toast('Библиотека P2P не загрузилась'); return; }
+  const code=(($('#collabIn')||{}).value||'').trim(); if(!code){ toast('Вставьте код-приглашение'); return; }
+  let sig; try{ sig=b64dec(code); }catch(e){ toast('Неверный формат кода'); return; }
+  endPeer(); isHost=false; lastRole='guest'; _collabStep='join-wait'; peer=new SimplePeer({initiator:false,trickle:false,config:getIce()}); wirePeer(); renderCollabModal();
+  try{ peer.signal(sig); armFastSignal(); }catch(e){ toast('Не удалось обработать код'); } }
+function collabAcceptAnswer(){ const code=(($('#collabIn')||{}).value||'').trim(); if(!code){ toast('Вставьте код-ответ'); return; }
+  if(!peer){ toast('Сначала создайте сессию'); return; }
+  if(peerConnected){ toast('Уже подключено'); return; }
+  if(_answerApplied || (peer._pc && peer._pc.signalingState && peer._pc.signalingState!=='have-local-offer')){ toast('Код-ответ уже принят — дождитесь подключения. Если не вышло, создайте сессию заново.'); return; }
+  let sig; try{ sig=b64dec(code); }catch(e){ toast('Неверный формат кода'); return; }
+  _answerApplied=true;
+  const b=document.getElementById('cbAns'); if(b){ b.disabled=true; b.textContent='Подключаюсь…'; }
+  try{ peer.signal(sig); toast('Подключаюсь…'); }catch(e){ _answerApplied=false; if(b){ b.disabled=false; b.textContent='Подключиться'; } toast('Не удалось обработать ответ'); } }
+
+/* --- collaboration modal --- */
+function openCollabModal(){ renderCollabModal(); }
+function renderCollabModal(){
+  let body;
+  if(peerLost && !peerConnected){
+    body=`<div class="hint" style="color:var(--red);font-weight:600">⚠ Соединение потеряно</div>
+      <p class="hint">Данные опроса и чат сохранены. Переподключитесь, чтобы продолжить вместе.</p>
+      <div class="row" style="margin-top:8px"><button class="btn btn-primary" id="cbRe">${lastRole==='guest'?'🔗 Подключиться заново':'🎤 Создать сессию заново'}</button><button class="btn" id="cbResetRole">Другой режим</button></div>`;
+  } else if(peerConnected){
+    body=`<div class="hint" style="color:var(--green);font-weight:600">✓ Подключено — правки опроса и чат синхронизируются в реальном времени.</div>
+      <div style="margin-top:12px"><button class="btn btn-danger" id="cbDisc" style="width:100%">Отключиться</button></div>`;
+  } else if(_collabStep==='host'){
+    const ready=!!_lastSignal;
+    body=`<div class="hint"><b>Шаг 1.</b> Отправьте этот код-приглашение второму участнику:</div>
+      <textarea class="input" readonly rows="3" style="font-family:var(--mono);font-size:12px;margin-top:6px">${ready?esc(_lastSignal):'генерирую код…'}</textarea>
+      <button class="btn btn-sm" id="cbCopy" style="margin-top:6px" ${ready?'':'disabled'}>📋 Скопировать</button>
+      <div class="sep"></div>
+      <div class="hint"><b>Шаг 2.</b> Вставьте полученный от него код-ответ:</div>
+      <textarea class="input" id="collabIn" rows="3" style="font-family:var(--mono);font-size:12px;margin-top:6px" placeholder="код-ответ"></textarea>
+      <button class="btn btn-primary" id="cbAns" style="margin-top:6px;width:100%">Подключиться</button>`;
+  } else if(_collabStep==='join'){
+    body=`<div class="hint">Вставьте код-приглашение от организатора:</div>
+      <textarea class="input" id="collabIn" rows="3" style="font-family:var(--mono);font-size:12px;margin-top:6px" placeholder="код-приглашение"></textarea>
+      <button class="btn btn-primary" id="cbJoin" style="margin-top:6px;width:100%">Сгенерировать код-ответ</button>`;
+  } else if(_collabStep==='join-wait'){
+    const ready=!!_lastSignal;
+    body=`<div class="hint">Отправьте этот код-ответ организатору и дождитесь подключения:</div>
+      <textarea class="input" readonly rows="3" style="font-family:var(--mono);font-size:12px;margin-top:6px">${ready?esc(_lastSignal):'генерирую код…'}</textarea>
+      <button class="btn btn-sm" id="cbCopy" style="margin-top:6px" ${ready?'':'disabled'}>📋 Скопировать</button>
+      <div class="hint" style="margin-top:8px;text-align:center">Ожидаю организатора…</div>`;
+  } else {
+    body=`<p class="hint" style="margin:0 0 10px">Подключите второго интервьюера напрямую (P2P, без сервера): правки опроса и чат синхронизируются в реальном времени. ${hasSP()?'':'<b style="color:var(--red)">Библиотека P2P не загрузилась — нужен интернет.</b>'}</p>
+      <div class="row"><button class="btn btn-primary" id="cbHost">🎤 Создать сессию</button><button class="btn" id="cbJoinStart">🔗 Подключиться к сессии</button></div>
+      <details class="help" style="margin-top:12px"><summary>Как это работает</summary><div class="hc" style="font-size:13px">Организатор жмёт «Создать сессию», копирует код-приглашение и шлёт коллеге (мессенджер/почта). Коллега жмёт «Подключиться», вставляет код, генерирует код-ответ и шлёт обратно. Организатор вставляет код-ответ — готово. Соединение P2P, шифруется (DTLS). По умолчанию только STUN — этого хватает в одной сети. Для <b>разных сетей</b> (или при VPN/блокировщике) нужен свой TURN — впишите его ниже.</div></details>
+      <details class="help" style="margin-top:8px"><summary>Свой TURN (если не соединяется)</summary><div class="hc" style="font-size:13px">
+        <input class="input" id="turnUrl" placeholder="turn:host:3478"><div class="row" style="margin-top:6px"><input class="input" id="turnUser" placeholder="username"><input class="input" id="turnCred" placeholder="credential"></div>
+        <button class="btn btn-sm" id="turnSave" style="margin-top:8px">Сохранить TURN</button>
+        <div class="hint" style="margin-top:6px">Бесплатный TURN: metered.ca (free tier) или свой coturn. Сохраняется в браузере, применяется при следующем подключении.</div><div id="turnStatus" class="hint" style="margin-top:6px"></div></div></details>
+      <details class="help" style="margin-top:8px"><summary>🔧 Диагностика соединения</summary><div class="hc" style="font-size:13px">
+        <p class="hint" style="margin:0 0 6px">Запустите на <b>обоих</b> ПК и сравните. Главное — есть ли <b>host</b>-кандидат с реальным IP вашей VPN (а не <code>*.local</code>), и достижимы ли эти IP друг для друга.</p>
+        <div class="row"><button class="btn btn-sm" id="diagCands">Проверить мои ICE-кандидаты</button><button class="btn btn-sm" id="diagReveal" title="Chrome раскроет реальный локальный IP">🎤 Раскрыть реальный IP</button></div>
+        <pre id="diagOut" style="white-space:pre-wrap;word-break:break-all;font-family:var(--mono);font-size:11px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:8px;margin-top:8px;max-height:220px;overflow:auto"></pre>
+      </div></details>`;
+  }
+  const nameField=`<div style="margin-bottom:12px"><label class="fld">Ваше имя (подпись в чате)</label><input class="input" id="collabMyName" placeholder="как вас зовут" value="${esc(myDisplayName)}"></div>`;
+  openModal(`<div class="mhead"><h3 style="margin:0">👥 Совместная работа</h3><button class="icon-btn" data-mclose>✕</button></div><div class="mbody">${nameField}${body}</div>`);
+  const on=(id,fn)=>{ const e=document.getElementById(id); if(e) e.onclick=fn; };
+  const nm=document.getElementById('collabMyName'); if(nm) nm.oninput=()=>{ myDisplayName=nm.value; try{localStorage.setItem('oprosnik.myname',myDisplayName);}catch(e){} };
+  on('cbHost',collabHost); on('cbJoinStart',collabJoinStart); on('cbJoin',collabJoinAccept); on('cbAns',collabAcceptAnswer);
+  on('cbDisc',()=>{ endPeer('Отключено'); closeModal(); });
+  on('cbRe',()=>{ peerLost=false; if(lastRole==='guest') collabJoinStart(); else collabHost(); });
+  on('cbResetRole',()=>{ peerLost=false; renderCollabModal(); });
+  on('cbCopy',()=>{ const t=document.querySelector('#modal textarea[readonly]'); if(t&&navigator.clipboard){ navigator.clipboard.writeText(t.value).then(()=>toast('Скопировано')); } });
+  on('diagCands',diagCandidates); on('diagReveal',diagReveal);
+  { const dout=document.getElementById('diagOut'); if(dout && diagLog) dout.textContent=diagLog; }
+  const tsBtn=document.getElementById('turnSave');
+  const showTurnStatus=()=>{ const st=document.getElementById('turnStatus'); if(!st) return; let o=null; try{ o=JSON.parse(localStorage.getItem('oprosnik.turn')||'null'); }catch(e){} st.innerHTML=o&&o.urls?('✓ Активен ваш TURN: <b>'+esc(o.urls)+'</b>'):'TURN не задан — только прямой P2P (host/STUN).'; };
+  showTurnStatus();
+  if(tsBtn){ try{ const o=JSON.parse(localStorage.getItem('oprosnik.turn')||'null'); if(o){ const u=document.getElementById('turnUrl'),us=document.getElementById('turnUser'),c=document.getElementById('turnCred'); if(u)u.value=o.urls||''; if(us)us.value=o.username||''; if(c)c.value=o.credential||''; } }catch(e){}
+    tsBtn.onclick=()=>{ const urls=((document.getElementById('turnUrl')||{}).value||'').trim();
+      if(!urls){ try{localStorage.removeItem('oprosnik.turn')}catch(e){} toast('Свой TURN очищен'); showTurnStatus(); return; }
+      const obj={urls,username:((document.getElementById('turnUser')||{}).value||'').trim(),credential:((document.getElementById('turnCred')||{}).value||'').trim()};
+      try{ localStorage.setItem('oprosnik.turn',JSON.stringify(obj)); toast('TURN сохранён — переподключитесь'); showTurnStatus(); }catch(e){ toast('Не удалось сохранить'); } }; }
+}
+function updateCollabBtn(){ const b=$('#collabBtn'); if(b){ b.textContent=peerConnected?'🟢':(peerLost?'🔴':'👥'); b.title=peerConnected?'Подключено — совместная работа':(peerLost?'Соединение потеряно — переподключиться':'Совместная работа'); } }
+
+/* --- diagnostics --- */
+let diagLog='';
+function diagPrint(s){ diagLog+=s; const el=document.getElementById('diagOut'); if(el){ el.textContent=diagLog; el.scrollTop=el.scrollHeight; } }
+function diagCandidates(){
+  if(typeof RTCPeerConnection==='undefined'){ diagLog='WebRTC недоступен в этом браузере.\n'; diagPrint(''); return; }
+  diagLog='Собираю ICE-кандидаты…\n'; try{ diagLog+='ICE-серверы: '+(getIce().iceServers.map(s=>s.urls).join(', ')||'(только host)')+'\n'; }catch(e){} diagPrint('');
+  let pc; try{ pc=new RTCPeerConnection(getIce()); }catch(e){ diagPrint('Ошибка RTCPeerConnection: '+e.message+'\n'); return; }
+  let host=0,mdns=0,srflx=0,relay=0,done=false;
+  const finish=()=>{ if(done) return; done=true;
+    diagPrint(`\n— Итог: host ${host} (из них mDNS *.local: ${mdns}) · srflx/STUN ${srflx} · relay/TURN ${relay}\n`);
+    if(host && mdns<host) diagPrint('✓ Есть host-кандидат с реальным IP — прямой P2P (в т.ч. по VPN) возможен. Сравните IP с другим ПК: они должны быть взаимно достижимы.\n');
+    if(host && mdns===host) diagPrint('⚠ Все host-кандидаты скрыты как *.local (mDNS). Между разными ПК через VPN они обычно не резолвятся → прямого пути нет. Решения: нажмите «🎤 Раскрыть реальный IP», либо отключите chrome://flags/#enable-webrtc-hide-local-ips-with-mdns, либо поднимите свой TURN.\n');
+    if(!srflx) diagPrint('• srflx (через STUN) нет — для P2P внутри VPN это и не нужно.\n');
+    if(relay) diagPrint('✓ Есть relay (TURN рабочий).\n');
+    try{ pc.close(); }catch(e){}
+  };
+  pc.onicecandidate=e=>{ if(e.candidate){ const c=e.candidate.candidate||''; const p=c.split(' ');
+      const typ=(c.match(/ typ (\S+)/)||[])[1]||'?'; const addr=p[4]||'', port=p[5]||'', proto=(p[2]||'').toLowerCase();
+      if(typ==='host'){ host++; if(/\.local$/i.test(addr)) mdns++; } else if(typ==='srflx') srflx++; else if(typ==='relay') relay++;
+      diagPrint(`${typ}\t${proto}\t${addr}:${port}\n`);
+    } else finish(); };
+  pc.onicegatheringstatechange=()=>{ if(pc.iceGatheringState==='complete') finish(); };
+  setTimeout(finish,8000);
+  try{ pc.createDataChannel('diag'); pc.createOffer().then(o=>pc.setLocalDescription(o)).catch(e=>diagPrint('Ошибка оффера: '+e.message+'\n')); }catch(e){ diagPrint('Ошибка: '+e.message+'\n'); }
+}
+function diagReveal(){ if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){ diagPrint('getUserMedia недоступен в этом браузере.\n'); return; }
+  navigator.mediaDevices.getUserMedia({audio:true}).then(s=>{ s.getTracks().forEach(t=>t.stop()); diagPrint('Доступ к микрофону выдан — Chrome раскрывает реальные локальные IP. Повторяю проверку…\n'); diagCandidates(); }).catch(e=>diagPrint('Микрофон не выдан: '+(e.message||e.name||e)+'\n')); }
+
+/* --- chat --- */
+function audioCtx(){ try{ if(!_actx){ const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return null; _actx=new AC(); } if(_actx.state==='suspended') _actx.resume(); }catch(e){ return null; } return _actx; }
+function playPing(){ if(!chatSound) return; const ctx=audioCtx(); if(!ctx) return; try{ const t=ctx.currentTime;
+  const o=ctx.createOscillator(), g=ctx.createGain(); o.type='sine';
+  o.frequency.setValueAtTime(880,t); o.frequency.setValueAtTime(1320,t+0.09);
+  g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.2,t+0.02); g.gain.exponentialRampToValueAtTime(0.0001,t+0.33);
+  o.connect(g); g.connect(ctx.destination); o.start(t); o.stop(t+0.35);
+}catch(e){} }
+function updateSoundBtn(){ const b=$('#chatSoundBtn'); if(b){ b.textContent=chatSound?'🔔':'🔕'; b.title=chatSound?'Звук уведомлений: вкл':'Звук уведомлений: выкл'; } }
+function toggleChatSound(){ chatSound=!chatSound; try{ localStorage.setItem('oprosnik.chatSound',chatSound?'1':'0'); }catch(e){} updateSoundBtn(); if(chatSound) playPing(); }
+function showChatFab(v){ const f=$('#chatFab'); if(f) f.hidden=!v; if(!v) closeChat(); }
+function openChat(){ const p=$('#chatPanel'); if(!p) return; p.hidden=false; setChatCollapsed(false); chatUnread=0; updateChatBadge(); renderChat(); const i=$('#chatText'); if(i) i.focus(); }
+function closeChat(){ const p=$('#chatPanel'); if(p) p.hidden=true; }
+function toggleChat(){ const p=$('#chatPanel'); if(!p) return; if(p.hidden) openChat(); else closeChat(); }
+function setChatCollapsed(v){ chatCollapsed=v; const p=$('#chatPanel'); if(p) p.classList.toggle('collapsed',v);
+  const b=$('#chatMin'); if(b){ b.textContent=v?'▢':'—'; b.title=v?'Развернуть':'Свернуть'; }
+  if(!v){ chatUnread=0; updateChatBadge(); renderChat(); } }
+function toggleChatCollapse(){ setChatCollapsed(!chatCollapsed); }
+function updateChatBadge(){ const b=$('#chatBadge'); if(b){ b.textContent=chatUnread; b.hidden=chatUnread<=0; } const c=$('#chatCount'); if(c){ c.textContent=chatUnread>0?` (${chatUnread})`:''; } }
+function addChat(m,mine){ CHAT.push({name:m.name,text:m.text,ts:m.ts||Date.now(),mine:!!mine}); if(CHAT.length>500) CHAT.shift();
+  if(!mine){ playPing(); const p=$('#chatPanel'); if(!p||p.hidden||chatCollapsed){ chatUnread++; updateChatBadge(); } } renderChat(); }
+function addChatSystem(text){ CHAT.push({sys:true,text,ts:Date.now()}); renderChat(); }
+function renderChat(){ const log=$('#chatLog'); if(!log) return; let html='', prev=null;
+  CHAT.forEach(m=>{
+    if(m.sys){ html+=`<div class="chat-sys">${esc(m.text)}</div>`; prev=null; return; }
+    const grouped=prev&&prev.mine===m.mine&&prev.name===m.name;
+    const meta=grouped?'':`<div class="chat-meta">${esc(m.name)} · ${new Date(m.ts).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})}</div>`;
+    html+=`<div class="chat-msg ${m.mine?'me':'them'}${grouped?' grouped':''}">${meta}<div class="chat-bub">${esc(m.text)}</div></div>`;
+    prev=m;
+  });
+  log.innerHTML=html; log.scrollTop=log.scrollHeight; }
+function sendChat(){ const i=$('#chatText'); if(!i) return; const text=i.value.trim(); if(!text) return;
+  if(!peerConnected){ toast('Нет соединения с участником'); return; }
+  const ts=Date.now(); collabSend({t:'chat',name:myName(),text,ts}); addChat({name:myName(),text,ts},true); i.value=''; i.focus(); }
+
+/* ========================= resume (PDF) ========================= */
+let _resumeSel=null, RESUME={name:'',numPages:0};
+function ensureResumeNotes(){ if(!SESSION.resumeNotes) SESSION.resumeNotes=[]; }
+function renderResume(){ renderResumeNotes(); const has=$('#pdfPages')&&$('#pdfPages').children.length>0; if($('#resumeEmpty'))$('#resumeEmpty').hidden=!!has; if($('#resumeClearBtn'))$('#resumeClearBtn').hidden=!has; }
+function renderResumeNotes(){ ensureResumeNotes(); const el=$('#resumeNotesPanel'); if(!el) return; const notes=SESSION.resumeNotes;
+  el.innerHTML=`<div class="spread" style="margin-bottom:8px"><h3 style="margin:0">Комментарии к резюме</h3><span class="hint">${notes.length}</span></div>`+
+    (notes.length?notes.map(n=>`<div class="rnote">
+      <div class="rnote-q" data-jump="${n.page}" title="Перейти к стр. ${n.page}">«${esc(n.quote.length>180?n.quote.slice(0,180)+'…':n.quote)}» <span class="hint">— стр. ${n.page}</span></div>
+      <div class="rnote-c">${esc(n.comment)}</div>
+      <div style="text-align:right"><button class="btn btn-sm btn-ghost" data-rdel="${n.id}">🗑</button></div>
+    </div>`).join(''):'<div class="center-empty" style="padding:20px 8px">Пока нет. Выделите текст в резюме и нажмите «💬 Комментарий».</div>');
+}
+async function loadResumePdf(file){
+  if(typeof pdfjsLib==='undefined'){ toast('Библиотека PDF не загрузилась (нужен интернет)'); return; }
+  try{ pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js'; }catch(e){}
+  let buf; try{ buf=await file.arrayBuffer(); }catch(e){ toast('Не удалось прочитать файл'); return; }
+  const pages=$('#pdfPages'); if(!pages) return; pages.innerHTML=''; if($('#resumeEmpty'))$('#resumeEmpty').hidden=true; toast('Открываю резюме…');
+  let pdf; try{ pdf=await pdfjsLib.getDocument({data:buf}).promise; }catch(e){ toast('Не удалось открыть PDF'); return; }
+  RESUME={name:file.name,numPages:pdf.numPages}; const SCALE=1.4;
+  for(let p=1;p<=pdf.numPages;p++){
+    let page; try{ page=await pdf.getPage(p); }catch(e){ continue; }
+    const viewport=page.getViewport({scale:SCALE});
+    const wrap=document.createElement('div'); wrap.className='pdf-page'; wrap.dataset.page=p; wrap.style.width=viewport.width+'px'; wrap.style.height=viewport.height+'px';
+    const canvas=document.createElement('canvas'); canvas.width=viewport.width; canvas.height=viewport.height; wrap.appendChild(canvas);
+    const tl=document.createElement('div'); tl.className='textLayer'; tl.dataset.page=p; tl.style.width=viewport.width+'px'; tl.style.height=viewport.height+'px'; tl.style.setProperty('--scale-factor',String(SCALE)); wrap.appendChild(tl);
+    pages.appendChild(wrap);
+    try{ await page.render({canvasContext:canvas.getContext('2d'),viewport}).promise; }catch(e){}
+    try{ const tc=await page.getTextContent(); const rt=pdfjsLib.renderTextLayer({textContentSource:tc,container:tl,viewport,textDivs:[]}); if(rt&&rt.promise) await rt.promise; }
+    catch(e){ try{ const tc=await page.getTextContent(); pdfjsLib.renderTextLayer({textContent:tc,container:tl,viewport,textDivs:[]}); }catch(_){} }
+  }
+  if($('#resumeClearBtn'))$('#resumeClearBtn').hidden=false; toast('Резюме загружено ('+pdf.numPages+' стр.)');
+}
+function clearResume(){ const pages=$('#pdfPages'); if(pages) pages.innerHTML=''; RESUME={name:'',numPages:0}; if($('#resumeEmpty'))$('#resumeEmpty').hidden=false; if($('#resumeClearBtn'))$('#resumeClearBtn').hidden=true; }
+function onResumeMouseUp(){ const btn=$('#resumeCommentBtn'); if(!btn) return;
+  const sel=window.getSelection(); const q=((sel&&sel.toString())||'').replace(/\s+/g,' ').trim();
+  if(q && sel.rangeCount && $('#resumeView') && $('#resumeView').contains(sel.anchorNode)){
+    let node=sel.anchorNode, page=1; while(node){ if(node.nodeType===1 && node.dataset && node.dataset.page){ page=+node.dataset.page; break; } node=node.parentNode; }
+    _resumeSel={quote:q,page}; const rect=sel.getRangeAt(0).getBoundingClientRect();
+    btn.style.left=(rect.left+rect.width/2)+'px'; btn.style.top=Math.max(10,rect.top-42)+'px'; btn.hidden=false;
+  } else btn.hidden=true;
+}
+function openResumeCommentModal(){ if(!_resumeSel) return; const q=_resumeSel.quote, page=_resumeSel.page; const btn=$('#resumeCommentBtn'); if(btn) btn.hidden=true;
+  openModal(`<div class="mhead"><h3 style="margin:0">💬 Комментарий к резюме</h3><button class="icon-btn" data-mclose>✕</button></div>
+    <div class="mbody">
+      <div class="hint">Стр. ${page} · выделенный фрагмент:</div>
+      <div style="border-left:3px solid var(--accent);padding:6px 10px;background:var(--surface-2);border-radius:6px;font-size:13px;max-height:120px;overflow:auto">${esc(q)}</div>
+      <div><label class="fld">Ваш комментарий</label><textarea class="input" id="resumeCommentText" rows="4" placeholder="что отметить по этому фрагменту"></textarea></div>
+    </div>
+    <div class="mfoot"><button class="btn" data-mclose>Отмена</button><button class="btn btn-primary" id="resumeCommentSave">Сохранить</button></div>`);
+  const ta=$('#resumeCommentText'); if(ta) ta.focus();
+  $('#resumeCommentSave').onclick=()=>{ const c=($('#resumeCommentText').value||'').trim(); if(!c){ toast('Введите комментарий'); return; }
+    ensureResumeNotes(); SESSION.resumeNotes.push({id:uid(),page,quote:q,comment:c,ts:Date.now()}); saveSession(); updatePills(); closeModal(); renderResumeNotes(); toast('Комментарий добавлен'); };
+}
+function jumpToPage(p){ const el=document.querySelector(`.pdf-page[data-page="${p}"]`); if(el) el.scrollIntoView({behavior:'smooth',block:'start'}); }
+
 /* ========================= init ========================= */
 (function init(){
   let th='light'; try{ th=localStorage.getItem(LS.theme)||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'); }catch(e){}
   document.documentElement.setAttribute('data-theme',th); $('#themeBtn').textContent=th==='dark'?'☀️':'🌙';
+  const _vb=$('#verBadge'); if(_vb){ _vb.textContent='v'+APP_VERSION; _vb.onclick=()=>setView('help'); }
   loadData(); loadSession();
   if(!DATA||!DATA.questions){ DATA=defaultData(); }
   updatePills(); setView('prep');
+  updateCollabBtn(); showChatFab(false);
+  $('#collabBtn').onclick=openCollabModal;
+  $('#chatFab').onclick=toggleChat;
+  $('#chatClose').onclick=closeChat;
+  $('#chatMin').onclick=toggleChatCollapse;
+  $('#chatTitle').onclick=toggleChatCollapse;
+  $('#chatSend').onclick=sendChat;
+  $('#chatText').addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); sendChat(); } });
+  $('#resumeUploadBtn').onclick=()=>$('#resumeFile').click();
+  $('#resumeFile').addEventListener('change',e=>{ const f=e.target.files[0]; if(f) loadResumePdf(f); e.target.value=''; });
+  $('#resumeClearBtn').onclick=clearResume;
+  $('#resumeCommentBtn').onclick=openResumeCommentModal;
+  $('#resumeView').addEventListener('mouseup',onResumeMouseUp);
+  $('#resumeView').addEventListener('scroll',()=>{ const b=$('#resumeCommentBtn'); if(b) b.hidden=true; });
+  $('#resumeNotesPanel').addEventListener('click',e=>{ const del=e.target.closest('[data-rdel]'), jmp=e.target.closest('[data-jump]');
+    if(del){ SESSION.resumeNotes=(SESSION.resumeNotes||[]).filter(n=>n.id!==del.dataset.rdel); saveSession(); updatePills(); renderResumeNotes(); }
+    else if(jmp){ jumpToPage(+jmp.dataset.jump); } });
+  try{ chatSound=localStorage.getItem('oprosnik.chatSound')!=='0'; myDisplayName=localStorage.getItem('oprosnik.myname')||''; }catch(e){} updateSoundBtn();
+  $('#chatSoundBtn').onclick=toggleChatSound;
+  document.addEventListener('click',()=>audioCtx(),{once:true});
 })();
 </script>
 </body>

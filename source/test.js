@@ -4,7 +4,7 @@ const INDEX=process.env.INDEX||path.join(__dirname,'..','index.html');
 let html=fs.readFileSync(INDEX,'utf8');
 // expose internals for testing
 html=html.replace('/* ========================= init ========================= */',
-  'window.__api={results:()=>results(),DATA:()=>DATA,SESSION:()=>SESSION,addToSession:(id)=>addToSession(id),loadPreset:(id)=>loadPreset(id),calcItem:(it)=>calcItem(it),setView:(v)=>setView(v),clear:()=>{SESSION={meta:{candidate:"",position:"",interviewer:"",date:"2026-01-01",notes:""},items:[]};}};\n/* init */');
+  'window.__api={results:()=>results(),DATA:()=>DATA,SESSION:()=>SESSION,addToSession:(id)=>addToSession(id),loadPreset:(id)=>loadPreset(id),calcItem:(it)=>calcItem(it),setView:(v)=>setView(v),applyRemote:(s)=>applyRemoteSession(s),addChat:(m,mine)=>addChat(m,mine),CHAT:()=>CHAT,simulateConnectedDrop:()=>{peerConnected=true;handleDisconnect();},resetCollab:()=>{peerLost=false;peerConnected=false;},clear:()=>{SESSION={meta:{candidate:"",position:"",interviewer:"",date:"2026-01-01",notes:""},items:[]};}};\n/* init */');
 
 let fails=0; const ok=(c,m)=>{ if(c){console.log("  ok -",m);} else {console.log("  FAIL -",m);fails++;} };
 const dom=new JSDOM(html,{runScripts:"dangerously",resources:undefined,url:"http://localhost/",pretendToBeVisual:true,
@@ -118,6 +118,58 @@ setTimeout(()=>{
     nt.click();
     w.document.querySelector('.tab[data-view="bank"]').click();
     ok(!w.document.querySelector('header').classList.contains('nav-open'),"selecting a tab auto-closes menu");
+
+    console.log("== collaboration + chat ==");
+    ok(w.document.querySelector('#collabBtn')!==null,"collab button present in header");
+    ok(w.document.querySelector('#chatFab')!==null && w.document.querySelector('#chatPanel')!==null,"chat fab + panel present");
+    ok(w.document.querySelector('#chatFab').hidden===true,"chat fab hidden until connected");
+    api.clear();
+    api.applyRemote({meta:{candidate:'Удалённый',position:'mid',interviewer:'',date:'2026-01-01',notes:''},
+      items:[{uid:'r1',qid:'q1',category:'Linux',difficulty:'Low',question:'Q1',keyPoints:['','',''],checks:[false,false,false],assessment:'Уверенно знает',corr:0,comment:'',collapsed:false}]});
+    SC=api.SESSION();
+    ok(SC.items.length===1 && SC.meta.candidate==='Удалённый',"remote session is adopted (two-way sync apply)");
+    const n0=api.CHAT().length; api.addChat({name:'Коллега',text:'привет',ts:Date.now()},false);
+    ok(api.CHAT().length===n0+1,"incoming chat message stored");
+    ok(w.document.querySelector('#chatLog .chat-msg')!==null,"chat message rendered in log");
+    const fab=w.document.querySelector('#chatFab'); fab.click();
+    ok(w.document.querySelector('#chatPanel').hidden===false,"chat opens via fab");
+    w.document.querySelector('#chatMin').click();
+    ok(w.document.querySelector('#chatPanel').classList.contains('collapsed'),"minimize collapses chat panel");
+    w.document.querySelector('#chatMin').click();
+    ok(!w.document.querySelector('#chatPanel').classList.contains('collapsed'),"minimize toggles chat back open");
+    w.document.querySelector('#chatClose').click();
+    ok(w.document.querySelector('#chatPanel').hidden===true,"close (X) hides chat panel");
+    const sb=w.document.querySelector('#chatSoundBtn');
+    ok(sb!==null,"chat sound toggle present");
+    const beforeIcon=sb.textContent; sb.click();
+    ok(sb.textContent!==beforeIcon,"sound toggle flips icon");
+    sb.click();
+    ok(!/конструктор и оценка грейда/.test(w.document.querySelector('header').textContent),"header subtitle removed");
+    api.addChat({name:'Коллега',text:'второе подряд',ts:Date.now()},false);
+    const cmsgs=w.document.querySelectorAll('#chatLog .chat-msg');
+    ok(cmsgs[cmsgs.length-1].classList.contains('grouped'),"consecutive same-author message is grouped");
+    ok(cmsgs[cmsgs.length-1].querySelector('.chat-meta')===null,"grouped message omits repeated sender name");
+    ok(cmsgs[0].querySelector('.chat-meta')!==null,"first message keeps sender name");
+    w.document.querySelector('#collabBtn').click();
+    ok(w.document.querySelector('#collabMyName')!==null,"own-name field present in collab modal");
+    ok(/Интервьюер\(ы\)/.test(w.document.querySelector('#view-interview').textContent),"interviewer field labelled for two people");
+    api.simulateConnectedDrop();
+    ok(w.document.querySelector('#collabBtn').textContent==='🔴',"collab button shows lost state after drop");
+    ok(w.document.querySelector('#cbRe')!==null,"reconnect button shown after drop");
+    api.resetCollab();
+    w.document.querySelector('#collabBtn').click();
+    ok(w.document.querySelector('#diagCands')!==null && w.document.querySelector('#diagOut')!==null,"diagnostics panel present in collab modal");
+    api.SESSION().resumeNotes=[{id:'rn1',page:2,quote:'Опыт Python 5 лет',comment:'уточнить проекты',ts:1}];
+    api.setView('resume');
+    ok(w.document.querySelector('#view-resume #resumeUploadBtn')!==null,"resume tab with PDF upload present");
+    ok(/Опыт Python 5 лет/.test(w.document.querySelector('#resumeNotesPanel').textContent),"resume comment rendered with quote");
+    ok(/уточнить проекты/.test(w.document.querySelector('#resumeNotesPanel').textContent),"resume comment text rendered");
+    ok(/^v0\.3\.1/.test(w.document.querySelector('#verBadge').textContent),"version badge shows v0.3.1 ("+w.document.querySelector('#verBadge').textContent+")");
+    ok(w.document.querySelector('#view-prep #btnExportCfg')!==null,"data import/export/reset moved to Подготовка");
+    ok(w.document.querySelector('#view-matrix #btnExportCfg')===null,"data block removed from Матрицы");
+    api.setView('help');
+    ok(/История изменений/.test(w.document.querySelector('#view-help').textContent),"changelog section present in help");
+    ok(/0\.1\.0/.test(w.document.querySelector('#view-help').textContent),"changelog lists 0.1.0");
 
     console.log("\n"+(fails===0?"ALL TESTS PASSED ✓":fails+" TEST(S) FAILED ✗"));
     process.exit(fails===0?0:1);
