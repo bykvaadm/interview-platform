@@ -159,12 +159,13 @@ setTimeout(()=>{
     api.resetCollab();
     w.document.querySelector('#collabBtn').click();
     ok(w.document.querySelector('#diagCands')!==null && w.document.querySelector('#diagOut')!==null,"diagnostics panel present in collab modal");
+    ok(w.document.querySelector('#cbRevealTop')!==null,"reveal-real-IP button surfaced on main collab screen");
     api.SESSION().resumeNotes=[{id:'rn1',page:2,quote:'Опыт Python 5 лет',comment:'уточнить проекты',ts:1}];
     api.setView('resume');
     ok(w.document.querySelector('#view-resume #resumeUploadBtn')!==null,"resume tab with PDF upload present");
     ok(/Опыт Python 5 лет/.test(w.document.querySelector('#resumeNotesPanel').textContent),"resume comment rendered with quote");
     ok(/уточнить проекты/.test(w.document.querySelector('#resumeNotesPanel').textContent),"resume comment text rendered");
-    ok(/^v0\.3\.1/.test(w.document.querySelector('#verBadge').textContent),"version badge shows v0.3.1 ("+w.document.querySelector('#verBadge').textContent+")");
+    ok(/^v0\.3\.2/.test(w.document.querySelector('#verBadge').textContent),"version badge shows v0.3.2 ("+w.document.querySelector('#verBadge').textContent+")");
     ok(w.document.querySelector('#view-prep #btnExportCfg')!==null,"data import/export/reset moved to Подготовка");
     ok(w.document.querySelector('#view-matrix #btnExportCfg')===null,"data block removed from Матрицы");
     api.setView('help');
