@@ -186,6 +186,8 @@ table.tbl th,table.tbl td{text-align:left;padding:9px 11px;border-bottom:1px sol
 table.tbl th{font-size:12px;color:var(--muted);font-weight:650;text-transform:uppercase;letter-spacing:.03em;position:sticky;top:0;background:var(--surface)}
 table.tbl tr:hover td{background:var(--surface-2)}
 .grade-table td{font-variant-numeric:tabular-nums}
+.catbar{height:8px;background:var(--surface-3);border-radius:6px;overflow:hidden}
+.catbar-fill{height:100%;border-radius:6px}
 .reached{color:var(--green);font-weight:700}
 .notreached{color:var(--muted-2)}
 
@@ -513,6 +515,22 @@ function points(quality,diff){ const m=DATA.scoreMatrix[quality]; return m?(+m[d
 
 /* ========================= scoring ========================= */
 function calcItem(it){ if(!it.assessment) return null; return points(it.assessment,it.difficulty)+(+it.corr||0); }
+function categoryStats(){
+  const byCat={};
+  SESSION.items.filter(it=>it.assessment).forEach(it=>{ const c=byCat[it.category]||(byCat[it.category]={name:it.category,group:catGroup(it.category),n:0,earned:0,max:0}); c.n++; c.earned+=calcItem(it)||0; c.max+=points('Уверенно знает',it.difficulty); });
+  const g={CORE:0,MEDIUM:1,SPECIFIC:2};
+  return Object.keys(byCat).map(k=>{ const c=byCat[k]; c.pct=c.max>0?Math.round(c.earned/c.max*100):0; return c; })
+    .sort((a,b)=>(g[a.group]-g[b.group])||a.name.localeCompare(b.name,'ru'));
+}
+function catColor(p){ return p>=70?'var(--green)':(p>=40?'var(--amber)':'var(--red)'); }
+function catBreakdownHTML(){ const cs=categoryStats(); if(!cs.length) return '';
+  return `<div style="font-weight:700;font-size:14px;margin:16px 0 6px">Оценка по группам знаний</div>
+    <table class="tbl"><thead><tr><th>Категория</th><th>Вопр.</th><th>Баллы</th><th>Раскрытие</th><th></th></tr></thead><tbody>`+
+    cs.map(c=>{ const w=Math.max(0,Math.min(100,c.pct)), col=catColor(c.pct);
+      return `<tr><td><span class="badge ${groupClass(c.group)}">${esc(c.name)}</span></td><td>${c.n}</td><td>${fmt(c.earned)} / ${fmt(c.max)}</td><td style="min-width:110px"><div class="catbar"><div class="catbar-fill" style="width:${w}%;background:${col}"></div></div></td><td style="text-align:right;font-weight:650;color:${col}">${c.pct}%</td></tr>`;
+    }).join('')+`</tbody></table>
+    <div class="hint" style="margin-top:6px">«Раскрытие» = набранные баллы к максимуму (как если бы на все вопросы категории ответили «уверенно знает»); цвет: <span style="color:var(--green)">≥70%</span> / <span style="color:var(--amber)">40–70%</span> / <span style="color:var(--red)">&lt;40%</span>.</div>`;
+}
 function results(){
   const assessed=SESSION.items.filter(it=>it.assessment);
   const counts={Low:0,Medium:0,High:0};
@@ -639,7 +657,7 @@ function renderResults(){
       <div class="marker" style="left:${mleft}%"><div class="flag">${fmt(r.sum)}</div></div>
     </div></div>
     ${gtable}
-    <div class="hint" style="margin-top:9px"><b>Δ к порогу</b> — разница между суммой баллов кандидата и порогом грейда. «<span style="color:var(--green)">+N</span>» — грейд достигнут, столько баллов в запасе; «<span class="muted">−N</span>» — столько баллов не хватает до этого грейда.</div>`;
+    <div class="hint" style="margin-top:9px"><b>Δ к порогу</b> — разница между суммой баллов кандидата и порогом грейда. «<span style="color:var(--green)">+N</span>» — грейд достигнут, столько баллов в запасе; «<span class="muted">−N</span>» — столько баллов не хватает до этого грейда.</div>${catBreakdownHTML()}`;
 }
 function qualityOptions(sel){
   const opts=['<option value="">'+QUALITY_EMPTY+'</option>'];
@@ -903,6 +921,7 @@ function exportXlsx(){
     ['Сумма баллов',fmt(r.sum)],['Оценочный грейд',r.nearest?(r.lower&&r.upper?`${r.nearest} (между ${r.lower} и ${r.upper})`:r.nearest):'—'],[],
     ['Грейд','Ожидаемые баллы','Достигнут','Δ']];
   r.grades.forEach((g,i)=>s.push([g,fmt(r.T[i]),r.sum>=r.T[i]?'да':'нет',fmt(r.sum-r.T[i])]));
+  const cstat=categoryStats(); if(cstat.length){ s.push([]); s.push(['По группам знаний','Вопр.','Баллы','Максимум','Раскрытие %']); cstat.forEach(c=>s.push([c.name,c.n,fmt(c.earned),fmt(c.max),c.pct])); }
   const ws2=XLSX.utils.aoa_to_sheet(s); ws2['!cols']=[{wch:20},{wch:18},{wch:12},{wch:8}];
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws2,'Итог');
@@ -961,6 +980,7 @@ function exportPdf(){
       <th style="text-align:right;padding:5px 8px;border-bottom:2px solid ${C.line};color:${C.mut}">Ожид.</th>
       <th style="text-align:center;padding:5px 8px;border-bottom:2px solid ${C.line};color:${C.mut}">✓</th>
       <th style="text-align:right;padding:5px 8px;border-bottom:2px solid ${C.line};color:${C.mut}">Δ</th></tr></thead><tbody>${gradeRows}</tbody></table>
+    ${(function(){ const cs=categoryStats(); if(!cs.length) return ''; return `<div style="font-weight:700;font-size:14px;margin:4px 0 8px">Оценка по группам знаний</div><table style="width:100%;border-collapse:collapse;margin-bottom:18px;font-size:12px"><thead><tr><th style="text-align:left;padding:5px 8px;border-bottom:2px solid ${C.line};color:${C.mut}">Категория</th><th style="text-align:center;padding:5px 8px;border-bottom:2px solid ${C.line};color:${C.mut}">Вопр.</th><th style="text-align:right;padding:5px 8px;border-bottom:2px solid ${C.line};color:${C.mut}">Баллы</th><th style="text-align:right;padding:5px 8px;border-bottom:2px solid ${C.line};color:${C.mut}">Раскрытие</th></tr></thead><tbody>`+cs.map(c=>{ const col=c.pct>=70?'#15a34a':(c.pct>=40?'#a8650a':'#c81e1e'); return `<tr><td style="padding:4px 8px;border-bottom:1px solid ${C.line}">${esc(c.name)}</td><td style="padding:4px 8px;border-bottom:1px solid ${C.line};text-align:center">${c.n}</td><td style="padding:4px 8px;border-bottom:1px solid ${C.line};text-align:right">${fmt(c.earned)} / ${fmt(c.max)}</td><td style="padding:4px 8px;border-bottom:1px solid ${C.line};text-align:right;font-weight:700;color:${col}">${c.pct}%</td></tr>`; }).join('')+`</tbody></table>`; })()}
     <div style="font-weight:700;font-size:14px;margin-bottom:10px">Вопросы (${SESSION.items.length})</div>
     ${rowsHtml||'<div style="color:'+C.mut+'">нет вопросов</div>'}
     ${(SESSION.resumeNotes||[]).length?`<div style="font-weight:700;font-size:14px;margin:16px 0 8px">Комментарии к резюме (${SESSION.resumeNotes.length})</div>`+SESSION.resumeNotes.map(n=>`<div style="border-left:3px solid ${C.accent};padding:5px 10px;margin-bottom:7px;page-break-inside:avoid"><div style="font-size:11.5px;color:${C.mut};font-style:italic">«${esc(n.quote)}» — стр. ${n.page}</div><div style="font-size:12.5px;margin-top:3px">${esc(n.comment)}</div></div>`).join(''):''}

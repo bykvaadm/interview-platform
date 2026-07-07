@@ -15,7 +15,7 @@ setTimeout(()=>{
     console.log("== init ==");
     ok(!!api,"internals exposed");
     const DATA=api.DATA();
-    ok(DATA.questions.length===68,"68 questions loaded ("+DATA.questions.length+")");
+    ok(DATA.questions.length===71,"71 questions loaded ("+DATA.questions.length+")");
     ok(DATA.categories.length===34,"34 categories ("+DATA.categories.length+")");
     ok(w.document.querySelectorAll('#prep-list,.qrow').length>0 || w.document.querySelector('#prepList').children.length>0,"prep list rendered");
 
@@ -129,6 +129,14 @@ setTimeout(()=>{
       ok(cards[0].getAttribute('data-uid')===api.SESSION().items[1].uid,"assessed question bubbled above unassessed");
       ok(w.document.querySelector('#interviewList .iv-divider')!==null,"divider shown between assessed/unassessed"); }
 
+    console.log("== category breakdown ==");
+    api.clear();
+    { const ls=api.DATA().questions.filter(q=>q.category==='Linux').slice(0,2); ls.forEach(q=>api.addToSession(q.id)); }
+    api.SESSION().items.forEach(it=>it.assessment='Уверенно знает');
+    api.setView('interview');
+    ok(/Оценка по группам знаний/.test(w.document.querySelector('#resultsPanel').textContent),"knowledge-group breakdown shown in results");
+    ok(/Linux/.test(w.document.querySelector('#resultsPanel').textContent) && /100%/.test(w.document.querySelector('#resultsPanel').textContent),"category shows Linux at 100% (all max)");
+
     console.log("== collaboration + chat ==");
     ok(w.document.querySelector('#collabBtn')!==null,"collab button present in header");
     ok(w.document.querySelector('#chatFab')!==null && w.document.querySelector('#chatPanel')!==null,"chat fab + panel present");
@@ -175,7 +183,7 @@ setTimeout(()=>{
     ok(w.document.querySelector('#view-resume #resumeUploadBtn')!==null,"resume tab with PDF upload present");
     ok(/Опыт Python 5 лет/.test(w.document.querySelector('#resumeNotesPanel').textContent),"resume comment rendered with quote");
     ok(/уточнить проекты/.test(w.document.querySelector('#resumeNotesPanel').textContent),"resume comment text rendered");
-    ok(/^v0\.3\.4/.test(w.document.querySelector('#verBadge').textContent),"version badge shows v0.3.4 ("+w.document.querySelector('#verBadge').textContent+")");
+    ok(/^v0\.3\.5/.test(w.document.querySelector('#verBadge').textContent),"version badge shows v0.3.5 ("+w.document.querySelector('#verBadge').textContent+")");
     ok(w.document.querySelector('#view-prep #btnExportCfg')!==null,"data import/export/reset moved to Подготовка");
     ok(w.document.querySelector('#view-matrix #btnExportCfg')===null,"data block removed from Матрицы");
     api.setView('help');
