@@ -165,7 +165,7 @@ setTimeout(()=>{
     ok(w.document.querySelector('#view-resume #resumeUploadBtn')!==null,"resume tab with PDF upload present");
     ok(/Опыт Python 5 лет/.test(w.document.querySelector('#resumeNotesPanel').textContent),"resume comment rendered with quote");
     ok(/уточнить проекты/.test(w.document.querySelector('#resumeNotesPanel').textContent),"resume comment text rendered");
-    ok(/^v0\.3\.2/.test(w.document.querySelector('#verBadge').textContent),"version badge shows v0.3.2 ("+w.document.querySelector('#verBadge').textContent+")");
+    ok(/^v0\.3\.3/.test(w.document.querySelector('#verBadge').textContent),"version badge shows v0.3.3 ("+w.document.querySelector('#verBadge').textContent+")");
     ok(w.document.querySelector('#view-prep #btnExportCfg')!==null,"data import/export/reset moved to Подготовка");
     ok(w.document.querySelector('#view-matrix #btnExportCfg')===null,"data block removed from Матрицы");
     api.setView('help');
