@@ -137,6 +137,23 @@ setTimeout(()=>{
     ok(/Оценка по группам знаний/.test(w.document.querySelector('#resultsPanel').textContent),"knowledge-group breakdown shown in results");
     ok(/Linux/.test(w.document.querySelector('#resultsPanel').textContent) && /100%/.test(w.document.querySelector('#resultsPanel').textContent),"category shows Linux at 100% (all max)");
 
+    console.log("== interview filter / score / header ==");
+    api.clear();
+    { const l=api.DATA().questions.find(q=>q.category==='Linux'); const d=api.DATA().questions.find(q=>q.category==='Docker'); api.addToSession(l.id); api.addToSession(d.id); }
+    api.SESSION().items[0].assessment='Уверенно знает';
+    api.setView('interview');
+    ok(/\d+\s*\/\s*\d+/.test(w.document.querySelector('#interviewList [data-calc]').textContent),"assessed score shows X / Y");
+    ok(w.document.querySelector('#interviewList .iv-catcloud [data-catpick]')!==null,"category cloud present");
+    { const chips=[...w.document.querySelectorAll('#interviewList [data-catpick]')]; const lc=chips.find(c=>c.getAttribute('data-catpick')==='Linux'); lc.click(); }
+    ok(w.document.querySelectorAll('#interviewList .icard').length===1,"cloud chip filters to one category");
+    { const all=w.document.querySelector('#interviewList [data-catpick=""]'); all.click(); }
+    ok(w.document.querySelectorAll('#interviewList .icard').length===2,"'все' chip clears filter");
+    { const tag=w.document.querySelector('#interviewList .badge[data-catfilter]'); tag.click(); }
+    ok(w.document.querySelectorAll('#interviewList .icard').length===1,"clicking category tag filters");
+    { const all=w.document.querySelector('#interviewList [data-catpick=""]'); if(all) all.click(); }
+    { const qq=w.document.querySelector('#interviewList .icard .qq'); qq.click(); }
+    ok(w.document.querySelector('#interviewList .icard').classList.contains('collapsed'),"clicking question header collapses card");
+
     console.log("== collaboration + chat ==");
     ok(w.document.querySelector('#collabBtn')!==null,"collab button present in header");
     ok(w.document.querySelector('#chatFab')!==null && w.document.querySelector('#chatPanel')!==null,"chat fab + panel present");
@@ -183,7 +200,7 @@ setTimeout(()=>{
     ok(w.document.querySelector('#view-resume #resumeUploadBtn')!==null,"resume tab with PDF upload present");
     ok(/Опыт Python 5 лет/.test(w.document.querySelector('#resumeNotesPanel').textContent),"resume comment rendered with quote");
     ok(/уточнить проекты/.test(w.document.querySelector('#resumeNotesPanel').textContent),"resume comment text rendered");
-    ok(/^v0\.3\.5/.test(w.document.querySelector('#verBadge').textContent),"version badge shows v0.3.5 ("+w.document.querySelector('#verBadge').textContent+")");
+    ok(/^v0\.3\.6/.test(w.document.querySelector('#verBadge').textContent),"version badge shows v0.3.6 ("+w.document.querySelector('#verBadge').textContent+")");
     ok(w.document.querySelector('#view-prep #btnExportCfg')!==null,"data import/export/reset moved to Подготовка");
     ok(w.document.querySelector('#view-matrix #btnExportCfg')===null,"data block removed from Матрицы");
     api.setView('help');

@@ -166,6 +166,12 @@ label.fld{display:block;font-size:12.5px;font-weight:600;color:var(--muted);marg
 .iv-sort input{accent-color:var(--accent);cursor:pointer;width:15px;height:15px}
 .iv-divider{font-size:11.5px;font-weight:650;color:var(--muted-2);text-transform:uppercase;letter-spacing:.05em;margin:16px 4px 9px;display:flex;align-items:center;gap:10px}
 .iv-divider:before,.iv-divider:after{content:"";flex:1;height:1px;background:var(--border)}
+.badge[data-catfilter]{cursor:pointer}
+.badge[data-catfilter]:hover{filter:brightness(.94)}
+.badge.catactive{outline:2px solid var(--accent);outline-offset:1px}
+.iv-catcloud{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:12px}
+.icard .qbody .meta,.icard .qbody .qq{cursor:pointer}
+.icard .qbody .qq:hover{color:var(--accent)}
 
 /* Grade scale */
 .scale-wrap{padding:6px 4px 2px}
@@ -515,6 +521,10 @@ function points(quality,diff){ const m=DATA.scoreMatrix[quality]; return m?(+m[d
 
 /* ========================= scoring ========================= */
 function calcItem(it){ if(!it.assessment) return null; return points(it.assessment,it.difficulty)+(+it.corr||0); }
+function itemMax(it){ return points('Уверенно знает', it.difficulty); }
+function scoreColor(it){ const c=calcItem(it); if(c==null) return 'var(--muted)'; const m=itemMax(it), r=m>0?c/m:0;
+  return r<=0?'var(--red)':(r<0.4?'#e8720c':(r<0.7?'var(--amber)':(r<1?'#5aa832':'var(--green)'))); }
+function scoreText(it){ const c=calcItem(it); return c==null?'—':(fmt(c)+' / '+fmt(itemMax(it))); }
 function categoryStats(){
   const byCat={};
   SESSION.items.filter(it=>it.assessment).forEach(it=>{ const c=byCat[it.category]||(byCat[it.category]={name:it.category,group:catGroup(it.category),n:0,earned:0,max:0}); c.n++; c.earned+=calcItem(it)||0; c.max+=points('Уверенно знает',it.difficulty); });
@@ -664,7 +674,7 @@ function qualityOptions(sel){
   (DATA.qualities.slice().reverse()).forEach(q=>opts.push(`<option ${sel===q?'selected':''}>${esc(q)}</option>`));
   return opts.join('');
 }
-let sortAssessedTop=true;
+let sortAssessedTop=true, ivCatFilter='';
 function renderInterview(){
   bindMeta();
   $('#ivCount').innerHTML=`Вопросов в сессии: <b>${SESSION.items.length}</b>`;
@@ -677,9 +687,15 @@ function renderInterview(){
     renderResults(); return;
   }
   { const sc=$('#sortAssessedChk'); if(sc) sc.checked=sortAssessedTop; }
-  let _order=SESSION.items, _acount=0;
-  if(sortAssessedTop){ const _a=[],_r=[]; SESSION.items.forEach(x=>(x.assessment?_a:_r).push(x)); _order=_a.concat(_r); _acount=_a.length; }
-  list.innerHTML=_order.map((it,idx)=>{
+  let base=SESSION.items;
+  if(ivCatFilter){ base=SESSION.items.filter(it=>it.category===ivCatFilter); if(!base.length){ ivCatFilter=''; base=SESSION.items; } }
+  $('#ivCount').innerHTML = ivCatFilter ? `Категория: <b>${esc(ivCatFilter)}</b> · <a data-clearcat style="cursor:pointer;color:var(--accent);text-decoration:underline">показать все</a> <span class="hint">(${base.length} из ${SESSION.items.length})</span>` : `Вопросов в сессии: <b>${SESSION.items.length}</b>`;
+  let _order=base, _acount=0;
+  if(sortAssessedTop){ const _a=[],_r=[]; base.forEach(x=>(x.assessment?_a:_r).push(x)); _order=_a.concat(_r); _acount=_a.length; }
+  const _gord={CORE:0,MEDIUM:1,SPECIFIC:2};
+  const _cats=[...new Set(SESSION.items.map(it=>it.category))].sort((a,b)=>(_gord[catGroup(a)]-_gord[catGroup(b)])||a.localeCompare(b,'ru'));
+  const _cloud=_cats.length>1?`<div class="iv-catcloud"><span class="hint">Категория:</span><button class="chip ${!ivCatFilter?'on':''}" data-catpick="">все · ${SESSION.items.length}</button>`+_cats.map(c=>`<button class="chip ${ivCatFilter===c?'on':''}" data-catpick="${esc(c)}">${esc(c)} · ${SESSION.items.filter(x=>x.category===c).length}</button>`).join('')+`</div>`:'';
+  list.innerHTML=_cloud+_order.map((it,idx)=>{
     const _div=(sortAssessedTop&&_acount>0&&_acount<_order.length&&idx===_acount)?`<div class="iv-divider">не оценено</div>`:'';
     const calc=calcItem(it);
     const kp=it.keyPoints.map((k,ki)=>{
@@ -692,7 +708,7 @@ function renderInterview(){
         <div class="num">${String(idx+1).padStart(2,'0')}</div>
         <div class="qbody">
           <div class="meta">
-            <span class="badge ${groupClass(catGroup(it.category))}">${esc(it.category)}</span>
+            <span class="badge ${groupClass(catGroup(it.category))}${ivCatFilter===it.category?' catactive':''}" data-catfilter="${esc(it.category)}" title="Показать только эту категорию (повторный клик — снять)">${esc(it.category)}</span>
             <span class="badge ${diffClass(it.difficulty)}">${it.difficulty}</span>
             <span class="hint">ключевых точек отмечено ${checked}/${kpTotal}</span>
           </div>
@@ -700,9 +716,9 @@ function renderInterview(){
           <div class="kpwrap" style="margin-top:8px">${kp}</div>
         </div>
         <div class="controls">
-          <span class="mini"><span data-miniassess="${it.uid}">${esc(it.assessment||'не оценено')}</span><span data-minicmt="${it.uid}">${it.comment&&it.comment.trim()?' 💬':''}</span><b data-mini="${it.uid}">${calc==null?'—':fmt(calc)}</b></span>
+          <span class="mini"><span data-miniassess="${it.uid}">${esc(it.assessment||'не оценено')}</span><span data-minicmt="${it.uid}">${it.comment&&it.comment.trim()?' 💬':''}</span><b data-mini="${it.uid}" style="color:${scoreColor(it)}">${scoreText(it)}</b></span>
           <button class="btn btn-sm btn-ghost collapse-btn" data-collapse="${it.uid}" title="Свернуть/развернуть контролы">${it.collapsed?'▸':'▾'}</button>
-          ${sortAssessedTop?'':`<button class="btn btn-sm btn-ghost" data-move="${it.uid}" data-dir="-1" title="Выше" ${idx===0?'disabled':''}>↑</button><button class="btn btn-sm btn-ghost" data-move="${it.uid}" data-dir="1" title="Ниже" ${idx===_order.length-1?'disabled':''}>↓</button>`}
+          ${(sortAssessedTop||ivCatFilter)?'':`<button class="btn btn-sm btn-ghost" data-move="${it.uid}" data-dir="-1" title="Выше" ${idx===0?'disabled':''}>↑</button><button class="btn btn-sm btn-ghost" data-move="${it.uid}" data-dir="1" title="Ниже" ${idx===_order.length-1?'disabled':''}>↓</button>`}
           <button class="btn btn-sm btn-ghost" data-del="${it.uid}" title="Убрать">✕</button>
         </div>
       </div>
@@ -711,7 +727,7 @@ function renderInterview(){
           <select class="select" data-assess="${it.uid}" style="min-width:170px">${qualityOptions(it.assessment)}</select></div>
         <div class="fldw"><label class="fld">Корр. баллы</label>
           <input class="input" type="number" step="0.25" data-corr="${it.uid}" value="${it.corr||0}" style="width:96px"></div>
-        <div class="calc"><div class="n" data-calc="${it.uid}">${calc==null?'—':fmt(calc)}</div><div class="l">баллов за вопрос</div></div>
+        <div class="calc"><div class="n" data-calc="${it.uid}" style="color:${scoreColor(it)}">${scoreText(it)}</div><div class="l">баллов из максимума</div></div>
         <div class="fldw cmt"><label class="fld">Комментарий</label>
           <textarea data-comment="${it.uid}" placeholder="заметки по ответу кандидата…">${esc(it.comment||'')}</textarea></div>
       </div>
@@ -721,8 +737,9 @@ function renderInterview(){
 }
 function findItem(uid){ return SESSION.items.find(i=>i.uid===uid); }
 function updCalc(id){ const it=findItem(id); if(!it) return; const c=calcItem(it);
-  const el=document.querySelector(`[data-calc="${id}"]`); if(el)el.textContent=c==null?'—':fmt(c);
-  const m=document.querySelector(`[data-mini="${id}"]`); if(m)m.textContent=c==null?'—':fmt(c);
+  const _t=scoreText(it), _col=scoreColor(it);
+  const el=document.querySelector(`[data-calc="${id}"]`); if(el){ el.textContent=_t; el.style.color=_col; }
+  const m=document.querySelector(`[data-mini="${id}"]`); if(m){ m.textContent=_t; m.style.color=_col; }
   const ma=document.querySelector(`[data-miniassess="${id}"]`); if(ma)ma.textContent=it.assessment||'не оценено';
   const mc=document.querySelector(`[data-minicmt="${id}"]`); if(mc)mc.textContent=(it.comment&&it.comment.trim())?' 💬':'';
 }
@@ -1029,12 +1046,18 @@ $('#interviewList').addEventListener('input',e=>{
   if(cm!=null){ const it=findItem(cm); it.comment=e.target.value; const mc=document.querySelector(`[data-minicmt="${cm}"]`); if(mc)mc.textContent=(it.comment&&it.comment.trim())?' 💬':''; saveSession(); }
 });
 $('#interviewList').addEventListener('click',e=>{
+  const cp=e.target.closest('[data-catpick]'); if(cp){ ivCatFilter=(ivCatFilter===cp.dataset.catpick)?'':cp.dataset.catpick; renderInterview(); return; }
+  const cf=e.target.closest('[data-catfilter]'); if(cf){ ivCatFilter=(ivCatFilter===cf.dataset.catfilter)?'':cf.dataset.catfilter; renderInterview(); return; }
   const del=e.target.closest('[data-del]'),mv=e.target.closest('[data-move]'),col=e.target.closest('[data-collapse]');
   if(col){ const it=findItem(col.dataset.collapse); it.collapsed=!it.collapsed; saveSession();
     const card=e.target.closest('.icard'); card.classList.toggle('collapsed',it.collapsed); col.textContent=it.collapsed?'▸':'▾'; return; }
   if(del){ const i=SESSION.items.findIndex(x=>x.uid===del.dataset.del); if(i>=0){SESSION.items.splice(i,1);saveSession();updatePills();renderInterview();} }
   if(mv){ const i=SESSION.items.findIndex(x=>x.uid===mv.dataset.move); const j=i+(+mv.dataset.dir);
     if(j>=0&&j<SESSION.items.length){ const t=SESSION.items[i];SESSION.items[i]=SESSION.items[j];SESSION.items[j]=t;saveSession();renderInterview(); } }
+  if(del||mv) return;
+  if(e.target.closest('.kpwrap,.controls,button,input,select,textarea,label,a,[data-catfilter],[data-catpick]')) return;
+  const _top=e.target.closest('.top'); if(_top){ const card=_top.closest('.icard'); const it=card&&findItem(card.dataset.uid);
+    if(it){ it.collapsed=!it.collapsed; saveSession(); card.classList.toggle('collapsed',it.collapsed); const cb=card.querySelector('[data-collapse]'); if(cb) cb.textContent=it.collapsed?'▸':'▾'; } }
 });
 $('#toggleCollapse').onclick=()=>{ if(!SESSION.items.length) return; const anyExpanded=SESSION.items.some(it=>!it.collapsed); setAllCollapsed(anyExpanded); };
 $('#btnClearSession').onclick=()=>{ if(!SESSION.items.length){toast('Сессия уже пуста');return;}
@@ -1374,6 +1397,7 @@ function jumpToPage(p){ const el=document.querySelector(`.pdf-page[data-page="${
     else if(jmp){ jumpToPage(+jmp.dataset.jump); } });
   try{ chatSound=localStorage.getItem('oprosnik.chatSound')!=='0'; myDisplayName=localStorage.getItem('oprosnik.myname')||''; sortAssessedTop=localStorage.getItem('oprosnik.sortAssessed')!=='0'; }catch(e){} updateSoundBtn();
   $('#sortAssessedChk').addEventListener('change',e=>{ sortAssessedTop=e.target.checked; try{localStorage.setItem('oprosnik.sortAssessed',sortAssessedTop?'1':'0');}catch(_){}; renderInterview(); });
+  $('#ivCount').addEventListener('click',e=>{ if(e.target.closest('[data-clearcat]')){ ivCatFilter=''; renderInterview(); } });
   $('#chatSoundBtn').onclick=toggleChatSound;
   document.addEventListener('click',()=>audioCtx(),{once:true});
 })();
