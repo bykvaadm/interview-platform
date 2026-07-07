@@ -162,6 +162,10 @@ label.fld{display:block;font-size:12.5px;font-weight:600;color:var(--muted);marg
 .icard.collapsed .mini{display:flex}
 .icard.collapsed .top{border-bottom:0}
 .collapse-btn{font-size:13px;line-height:1}
+.iv-sort{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);cursor:pointer;user-select:none;margin-right:auto}
+.iv-sort input{accent-color:var(--accent);cursor:pointer;width:15px;height:15px}
+.iv-divider{font-size:11.5px;font-weight:650;color:var(--muted-2);text-transform:uppercase;letter-spacing:.05em;margin:16px 4px 9px;display:flex;align-items:center;gap:10px}
+.iv-divider:before,.iv-divider:after{content:"";flex:1;height:1px;background:var(--border)}
 
 /* Grade scale */
 .scale-wrap{padding:6px 4px 2px}
@@ -367,6 +371,7 @@ kbd{font-family:var(--mono);font-size:12px;background:var(--surface-2);border:1p
     <div class="spread" style="margin-bottom:10px">
       <div class="hint" id="ivCount"></div>
       <div class="row">
+        <label class="iv-sort"><input type="checkbox" id="sortAssessedChk" checked> оценённые сверху</label>
         <button class="btn btn-sm" id="toggleCollapse" title="Свернуть/развернуть контролы у всех вопросов">▾ Свернуть все</button>
         <button class="btn btn-sm" data-goto="prep">＋ Добавить ещё вопросы</button>
       </div>
@@ -641,6 +646,7 @@ function qualityOptions(sel){
   (DATA.qualities.slice().reverse()).forEach(q=>opts.push(`<option ${sel===q?'selected':''}>${esc(q)}</option>`));
   return opts.join('');
 }
+let sortAssessedTop=true;
 function renderInterview(){
   bindMeta();
   $('#ivCount').innerHTML=`Вопросов в сессии: <b>${SESSION.items.length}</b>`;
@@ -652,14 +658,18 @@ function renderInterview(){
     list.innerHTML='<div class="panel center-empty">Сессия пуста. Перейдите во вкладку «Подготовка» и добавьте вопросы.</div>';
     renderResults(); return;
   }
-  list.innerHTML=SESSION.items.map((it,idx)=>{
+  { const sc=$('#sortAssessedChk'); if(sc) sc.checked=sortAssessedTop; }
+  let _order=SESSION.items, _acount=0;
+  if(sortAssessedTop){ const _a=[],_r=[]; SESSION.items.forEach(x=>(x.assessment?_a:_r).push(x)); _order=_a.concat(_r); _acount=_a.length; }
+  list.innerHTML=_order.map((it,idx)=>{
+    const _div=(sortAssessedTop&&_acount>0&&_acount<_order.length&&idx===_acount)?`<div class="iv-divider">не оценено</div>`:'';
     const calc=calcItem(it);
     const kp=it.keyPoints.map((k,ki)=>{
       if(!k||!k.trim()) return `<label class="kp-check empty"><input type="checkbox" disabled> (ключевая точка не задана)</label>`;
       return `<label class="kp-check"><input type="checkbox" data-chk="${it.uid}" data-ki="${ki}" ${it.checks[ki]?'checked':''}> ${esc(k)}</label>`;
     }).join('');
     const checked=it.checks.filter(Boolean).length, kpTotal=it.keyPoints.filter(k=>k&&k.trim()).length;
-    return `<div class="icard ${it.collapsed?'collapsed':''}" data-uid="${it.uid}">
+    return _div+`<div class="icard ${it.collapsed?'collapsed':''}" data-uid="${it.uid}">
       <div class="top">
         <div class="num">${String(idx+1).padStart(2,'0')}</div>
         <div class="qbody">
@@ -674,8 +684,7 @@ function renderInterview(){
         <div class="controls">
           <span class="mini"><span data-miniassess="${it.uid}">${esc(it.assessment||'не оценено')}</span><span data-minicmt="${it.uid}">${it.comment&&it.comment.trim()?' 💬':''}</span><b data-mini="${it.uid}">${calc==null?'—':fmt(calc)}</b></span>
           <button class="btn btn-sm btn-ghost collapse-btn" data-collapse="${it.uid}" title="Свернуть/развернуть контролы">${it.collapsed?'▸':'▾'}</button>
-          <button class="btn btn-sm btn-ghost" data-move="${it.uid}" data-dir="-1" title="Выше" ${idx===0?'disabled':''}>↑</button>
-          <button class="btn btn-sm btn-ghost" data-move="${it.uid}" data-dir="1" title="Ниже" ${idx===SESSION.items.length-1?'disabled':''}>↓</button>
+          ${sortAssessedTop?'':`<button class="btn btn-sm btn-ghost" data-move="${it.uid}" data-dir="-1" title="Выше" ${idx===0?'disabled':''}>↑</button><button class="btn btn-sm btn-ghost" data-move="${it.uid}" data-dir="1" title="Ниже" ${idx===_order.length-1?'disabled':''}>↓</button>`}
           <button class="btn btn-sm btn-ghost" data-del="${it.uid}" title="Убрать">✕</button>
         </div>
       </div>
@@ -989,7 +998,7 @@ $('#prepAddAll').onclick=()=>{ const inS=new Set(SESSION.items.map(i=>i.qid)); c
 });
 $('#interviewList').addEventListener('change',e=>{
   const a=e.target.dataset.assess,ch=e.target.dataset.chk;
-  if(a!=null){ const it=findItem(a); it.assessment=e.target.value; updCalc(a); saveSession(); renderResults(); }
+  if(a!=null){ const it=findItem(a); it.assessment=e.target.value; saveSession(); if(sortAssessedTop) renderInterviewKeepFocus(); else { updCalc(a); renderResults(); } }
   if(ch!=null){ const it=findItem(ch); it.checks[+e.target.dataset.ki]=e.target.checked; saveSession();
     const card=e.target.closest('.icard'); const checked=it.checks.filter(Boolean).length,tot=it.keyPoints.filter(k=>k&&k.trim()).length;
     const hintEl=card.querySelector('.meta .hint'); if(hintEl)hintEl.textContent=`ключевых точек отмечено ${checked}/${tot}`; }
@@ -1343,7 +1352,8 @@ function jumpToPage(p){ const el=document.querySelector(`.pdf-page[data-page="${
   $('#resumeNotesPanel').addEventListener('click',e=>{ const del=e.target.closest('[data-rdel]'), jmp=e.target.closest('[data-jump]');
     if(del){ SESSION.resumeNotes=(SESSION.resumeNotes||[]).filter(n=>n.id!==del.dataset.rdel); saveSession(); updatePills(); renderResumeNotes(); }
     else if(jmp){ jumpToPage(+jmp.dataset.jump); } });
-  try{ chatSound=localStorage.getItem('oprosnik.chatSound')!=='0'; myDisplayName=localStorage.getItem('oprosnik.myname')||''; }catch(e){} updateSoundBtn();
+  try{ chatSound=localStorage.getItem('oprosnik.chatSound')!=='0'; myDisplayName=localStorage.getItem('oprosnik.myname')||''; sortAssessedTop=localStorage.getItem('oprosnik.sortAssessed')!=='0'; }catch(e){} updateSoundBtn();
+  $('#sortAssessedChk').addEventListener('change',e=>{ sortAssessedTop=e.target.checked; try{localStorage.setItem('oprosnik.sortAssessed',sortAssessedTop?'1':'0');}catch(_){}; renderInterview(); });
   $('#chatSoundBtn').onclick=toggleChatSound;
   document.addEventListener('click',()=>audioCtx(),{once:true});
 })();

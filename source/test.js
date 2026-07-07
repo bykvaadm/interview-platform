@@ -119,6 +119,16 @@ setTimeout(()=>{
     w.document.querySelector('.tab[data-view="bank"]').click();
     ok(!w.document.querySelector('header').classList.contains('nav-open'),"selecting a tab auto-closes menu");
 
+    console.log("== bubble assessed to top ==");
+    api.clear();
+    { const q2=api.DATA().questions.slice(0,2); api.addToSession(q2[0].id); api.addToSession(q2[1].id); }
+    api.SESSION().items[1].assessment='Уверенно знает';
+    api.setView('interview');
+    { const cards=w.document.querySelectorAll('#interviewList .icard');
+      ok(cards.length===2,"2 interview cards ("+cards.length+")");
+      ok(cards[0].getAttribute('data-uid')===api.SESSION().items[1].uid,"assessed question bubbled above unassessed");
+      ok(w.document.querySelector('#interviewList .iv-divider')!==null,"divider shown between assessed/unassessed"); }
+
     console.log("== collaboration + chat ==");
     ok(w.document.querySelector('#collabBtn')!==null,"collab button present in header");
     ok(w.document.querySelector('#chatFab')!==null && w.document.querySelector('#chatPanel')!==null,"chat fab + panel present");
@@ -165,7 +175,7 @@ setTimeout(()=>{
     ok(w.document.querySelector('#view-resume #resumeUploadBtn')!==null,"resume tab with PDF upload present");
     ok(/Опыт Python 5 лет/.test(w.document.querySelector('#resumeNotesPanel').textContent),"resume comment rendered with quote");
     ok(/уточнить проекты/.test(w.document.querySelector('#resumeNotesPanel').textContent),"resume comment text rendered");
-    ok(/^v0\.3\.3/.test(w.document.querySelector('#verBadge').textContent),"version badge shows v0.3.3 ("+w.document.querySelector('#verBadge').textContent+")");
+    ok(/^v0\.3\.4/.test(w.document.querySelector('#verBadge').textContent),"version badge shows v0.3.4 ("+w.document.querySelector('#verBadge').textContent+")");
     ok(w.document.querySelector('#view-prep #btnExportCfg')!==null,"data import/export/reset moved to Подготовка");
     ok(w.document.querySelector('#view-matrix #btnExportCfg')===null,"data block removed from Матрицы");
     api.setView('help');
